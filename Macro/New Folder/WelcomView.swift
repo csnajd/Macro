@@ -1,8 +1,20 @@
-//
-//  login.swift
-//  Macro
-//
-//  Created by Ghida Abdullah al-Mughamer on 30/11/1447 AH.
-//
+import SwiftUI
 
-import Foundation
+struct WelcomView: View {
+    var onGetStarted: () -> Void
+    
+    var body: some View {
+        VStack(spacing: 24) {
+            Spacer()
+            
+            Text("هاي")
+                .font(.largeTitle.bold())
+            
+            Spacer()
+            
+            Button("ابدأ", action: onGetStarted)
+                .buttonStyle(.borderedProminent)
+                .padding(.bottom, 48)
+        }
+    }
+}

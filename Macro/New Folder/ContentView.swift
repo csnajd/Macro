@@ -5,7 +5,7 @@
 //  Created by najd aljarba on 13/05/2026.
 //
 
-iimport SwiftUI
+import SwiftUI
 
 struct ContentView: View {
     @State private var hasOnboarded = false
@@ -14,7 +14,7 @@ struct ContentView: View {
         if hasOnboarded {
             MainContainerView()
         } else {
-            WelcomeView(onGetStarted: {
+            WelcomView(onGetStarted: {
                 withAnimation(.spring()) { hasOnboarded = true }
             })
         }

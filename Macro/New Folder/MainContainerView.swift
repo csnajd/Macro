@@ -1,8 +1,16 @@
-//
-//  MainContainerView.swift
-//  Macro
-//
-//  Created by Ghida Abdullah al-Mughamer on 30/11/1447 AH.
-//
+import SwiftUI
 
-import Foundation
+struct MainContainerView: View {
+    var body: some View {
+        TabView {
+            Text("الرئيسية")
+                .tabItem {
+                    Label("الرئيسية", systemImage: "house.fill")
+                }
+            Text("المحفظة")
+                .tabItem {
+                    Label("المحفظة", systemImage: "chart.pie.fill")
+                }
+        }
+    }
+}
