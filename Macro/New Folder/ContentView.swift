@@ -1,26 +1,33 @@
 //
 //  ContentView.swift
+//
+//  ContentView.swift
 //  Macro
 //
-//  Created by najd aljarba on 13/05/2026.
+//  Created by Ghida Abdullah al-Mughamer on 25/05/2026.
 //
 
 import SwiftUI
+import SwiftData
 
 struct ContentView: View {
-    @State private var hasOnboarded = false
+    @State private var hasStartedApp = false
     
     var body: some View {
-        if hasOnboarded {
-            MainContainerView()
-        } else {
-            WelcomView(onGetStarted: {
-                withAnimation(.spring()) { hasOnboarded = true }
-            })
+        Group {
+            if hasStartedApp {
+                MainContainerView()
+                    .transition(.opacity.combined(with: .scale(scale: 0.98)))
+            } else {
+                WelcomView(hasStartedApp: $hasStartedApp)
+                    .transition(.opacity)
+            }
         }
     }
 }
 
 #Preview {
     ContentView()
+        .modelContainer(for: TransactionItem.self, inMemory: true)
+        .environment(AppStore())
 }
