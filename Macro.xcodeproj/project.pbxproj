@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 77;
+	objectVersion = 70;
 	objects = {
 
 /* Begin PBXContainerItemProxy section */
@@ -30,21 +30,9 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		CD122FCD2FB4BFC200FE2DF4 /* Macro */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = Macro;
-			sourceTree = "<group>";
-		};
-		CD122FDB2FB4BFC700FE2DF4 /* MacroTests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = MacroTests;
-			sourceTree = "<group>";
-		};
-		CD122FE52FB4BFC700FE2DF4 /* MacroUITests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = MacroUITests;
-			sourceTree = "<group>";
-		};
+		CD122FCD2FB4BFC200FE2DF4 /* Macro */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = Macro; sourceTree = "<group>"; };
+		CD122FDB2FB4BFC700FE2DF4 /* MacroTests */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = MacroTests; sourceTree = "<group>"; };
+		CD122FE52FB4BFC700FE2DF4 /* MacroUITests */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = MacroUITests; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -187,6 +175,7 @@
 				};
 			};
 			buildConfigurationList = CD122FC62FB4BFC200FE2DF4 /* Build configuration list for PBXProject "Macro" */;
+			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -195,7 +184,6 @@
 			);
 			mainGroup = CD122FC22FB4BFC200FE2DF4;
 			minimizedProjectReferenceProxies = 1;
-			preferredProjectObjectVersion = 77;
 			productRefGroup = CD122FCC2FB4BFC200FE2DF4 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";

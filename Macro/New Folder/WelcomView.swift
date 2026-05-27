@@ -120,6 +120,10 @@ public struct WelcomView: View {
     }
 }
 
+// Replace the block at the bottom of WelcomView.swift with this:
+
 #Preview {
     WelcomView(hasStartedApp: .constant(false))
+        // FIXED: Injecting the required global state explicitly into the canvas context pipeline
+        .environment(AppStore())
 }
