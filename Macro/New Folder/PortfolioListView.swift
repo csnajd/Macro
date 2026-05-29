@@ -1,116 +1,73 @@
 //
-//  PortfolioListView.swift
-//  Macro
+//   PortfolioListView.swift
+//   Macro
 //
-//  Created by Ghida Abdullah al-Mughamer on 26/05/2026.
+//   Created by Ghida Abdullah al-Mughamer on 28/05/2026.
 //
 
 import SwiftUI
 
-// MARK: - Main Operational Asset Ledger View
 public struct PortfolioListView: View {
     @Environment(AppStore.self) private var store
     @State private var showAddStockSheet = false
-    
+
     public init() {}
-    
+
     public var body: some View {
         ZStack(alignment: .bottom) {
-            Color("baige")
-                .ignoresSafeArea()
-            
+            // FIXED: Standard color primitive used to clear compiler error
+            Color("white").ignoresSafeArea()
+
             VStack(spacing: 0) {
-                // MARK: - Top Profile & Token Header Bar
-                HStack {
-                    Image(systemName: "person.crop.circle.fill")
-                        .font(.system(size: 28, weight: .light))
+                // Header
+                HStack(alignment: .center) {
+                    Text("Portfolio")
+                        .font(.system(size: 28, weight: .bold))
                         .foregroundColor(Color("brown"))
-                    
                     Spacer()
-                    
-                    // Gamified Brick Counter Capsule Asset
-                    HStack(spacing: 6) {
-                        Image("brick")
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 16, height: 16)
-                        Text("200")
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundColor(Color("brown"))
-                    }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 4)
-                    .background(Color("light brown").opacity(0.2))
-                    .cornerRadius(100)
+                    CoinBadge()
                 }
                 .padding(.horizontal, 24)
                 .padding(.top, 16)
-                
-                // MARK: - Portfolio Financial Summary Board
-                HStack(alignment: .top) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Total Invested")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(Color("brown").opacity(0.4))
-                        
-                        // Hardcoded layout baseline matches your target design screen exactly
-                        Text("12,840 SAR")
-                            .font(.system(size: 22, weight: .bold))
-                            .foregroundColor(Color("purple"))
-                    }
-                    
-                    Spacer()
-                    
-                    VStack(alignment: .trailing, spacing: 4) {
-                        Text("Total gain")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(Color("brown").opacity(0.4))
-                        
-                        Text("+538 SAR")
-                            .font(.system(size: 22, weight: .bold))
-                            .foregroundColor(Color("dark green"))
-                    }
-                }
-                .padding(.horizontal, 24)
-                .padding(.top, 24)
-                .padding(.bottom, 16)
-                
-                // MARK: - Asset Accounting Grid List
+
+                // Metrics
+                StatHeaderView(
+                    totalInvested: store.totalInvested,
+                    totalGain:     store.totalGain
+                )
+
+                // Live stock list
                 ScrollView(.vertical, showsIndicators: false) {
-                    VStack(spacing: 14) {
-                        // Safe Layout Blueprint Fallback Blocks to completely bypass SwiftData compile dependency
-                        StaticPortfolioRow(name: "SABIC", sector: "Basic Materials", totalVal: "4,200 SAR", percent: "+2.3%", isPositive: true, barProgress: 0.75, barColor: Color("purple"))
-                        StaticPortfolioRow(name: "Aramco", sector: "Energy", totalVal: "3,840 SAR", percent: "+1.8%", isPositive: true, barProgress: 0.50, barColor: Color("dark green"))
-                        StaticPortfolioRow(name: "STC", sector: "Telecom", totalVal: "2,560 SAR", percent: "-0.6%", isPositive: false, barProgress: 0.35, barColor: Color("burgindy"))
-                        StaticPortfolioRow(name: "Al Rajhi", sector: "Banking", totalVal: "2,240 SAR", percent: "+0.4%", isPositive: true, barProgress: 0.20, barColor: Color("light brown"))
+                    VStack(spacing: 16) {
+                        ForEach(store.portfolio) { stock in
+                            LivePortfolioRow(stock: stock)
+                        }
                     }
                     .padding(.horizontal, 24)
                     .padding(.top, 10)
                     .padding(.bottom, 140)
                 }
             }
-            
-            // MARK: - Absolute Positioned Floating Action Leather Button Style Asset
-            VStack {
-                Button(action: {
-                    showAddStockSheet = true
-                }) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "plus")
-                            .font(.system(size: 16, weight: .bold))
-                        Text("Add to portfolio")
-                            .font(.system(size: 18, weight: .semibold))
-                    }
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 18)
-                    .background(Color("light brown"))
-                    .cornerRadius(12)
-                    .shadow(color: Color("brown").opacity(0.18), radius: 8, x: 0, y: 4)
+
+            // Floating CTA
+            Button {
+                showAddStockSheet = true
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "plus")
+                        .font(.system(size: 15, weight: .bold))
+                    Text("Add to portfolio")
+                        .font(.system(size: 17, weight: .bold))
                 }
-                .padding(.horizontal, 24)
-                .padding(.bottom, 110) // Floats perfectly above the MainContainer capsule bar
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 18)
+                .background(Color("light brown"))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .shadow(color: Color("brown").opacity(0.16), radius: 8, x: 0, y: 4)
             }
+            .padding(.horizontal, 24)
+            .padding(.bottom, 110)
         }
         .sheet(isPresented: $showAddStockSheet) {
             AddStockView()
@@ -119,63 +76,62 @@ public struct PortfolioListView: View {
     }
 }
 
-// MARK: - Reusable Static Portfolio Row Component
-struct StaticPortfolioRow: View {
-    let name: String
-    let sector: String
-    let totalVal: String
-    let percent: String
-    let isPositive: Bool
-    let barProgress: CGFloat
-    let barColor: Color
-    
+// MARK: - Portfolio Row
+struct LivePortfolioRow: View {
+    let stock: Stock
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(name)
-                        .font(.system(size: 16, weight: .bold))
+                    Text(stock.symbol.replacingOccurrences(of: ".SR", with: ""))
+                        .font(.system(size: 17, weight: .bold))
                         .foregroundColor(Color("brown"))
-                    Text(sector)
-                        .font(.system(size: 12))
+                    Text(stock.category.rawValue)
+                        .font(.system(size: 13))
                         .foregroundColor(Color("brown").opacity(0.4))
                 }
-                
                 Spacer()
-                
                 VStack(alignment: .trailing, spacing: 4) {
-                    Text(totalVal)
-                        .font(.system(size: 15, weight: .bold))
+                    Text("\(Int(stock.price)) SAR")
+                        .font(.system(size: 16, weight: .bold))
                         .foregroundColor(Color("brown"))
-                    Text(percent)
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundColor(isPositive ? Color("dark green") : Color("burgindy"))
+                    Text(String(format: "%@%.1f%%", stock.changePercent >= 0 ? "+" : "", stock.changePercent))
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundColor(stock.changePercent >= 0 ? Color("dark green") : Color("burgindy"))
                 }
             }
-            
+
+            // Progress bar — width driven by change magnitude capped at 100 %
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 4)
+                    RoundedRectangle(cornerRadius: 100)
                         .fill(Color("brown").opacity(0.06))
                         .frame(height: 7)
-                    
-                    RoundedRectangle(cornerRadius: 4)
+                    RoundedRectangle(cornerRadius: 100)
                         .fill(barColor)
-                        .frame(width: geo.size.width * barProgress, height: 7)
+                        .frame(
+                            width: geo.size.width * CGFloat(
+                                min(max(abs(stock.changePercent) / 5.0, 0.15), 1.0)
+                            ),
+                            height: 7
+                        )
                 }
             }
             .frame(height: 7)
-            .padding(.top, 2)
-            
-            Divider()
-                .background(Color("brown").opacity(0.04))
-                .padding(.top, 6)
-        }
-        .padding(.vertical, 4)
-    }
-}
 
-#Preview {
-    PortfolioListView()
-        .environment(AppStore())
+            Divider()
+                .background(Color("brown").opacity(0.05))
+                .padding(.top, 4)
+        }
+    }
+
+    private var barColor: Color {
+        switch stock.symbol {
+        case let s where s.starts(with: "SABIC"): return Color("purple")
+        case let s where s.starts(with: "STC"):   return Color("burgindy")
+        case let s where s.starts(with: "RJHI"):  return Color("light brown")
+        default:                                   return Color("dark green")
+        }
+    }
 }

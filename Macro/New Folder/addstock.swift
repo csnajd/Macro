@@ -1,171 +1,237 @@
 //
-//  addstock.swift
-//  Macro
+//   addstock.swift
+//   Macro
 //
-//  Created by Ghida Abdullah al-Mughamer on 25/05/2026.
+//   Created by Ghida Abdullah al-Mughamer on 25/05/2026.
 //
 
 import SwiftUI
 
+// Simplified structure to represent discoverable stocks before fetching live API details
+struct DiscoverableStock: Identifiable {
+    var id: String { symbol }
+    let symbol: String
+    let name: String
+    let category: String
+}
+
 public struct AddStockView: View {
-    @State private var searchQuery: String = ""
-    @State private var selectedCategory: String = "Banking"
-    
-    let categories = ["Popular", "Banking", "Energy"]
-    
+    @Environment(AppStore.self) private var store
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var selectedCategory: String = "Popular"
+    private let categories = ["Popular", "Banking", "Energy"]
+
+    // Core list of default Saudi Market (Tadawul) stocks categorized for quick picking
+    private let discoverableStocks = [
+        // Popular / General Market
+        DiscoverableStock(symbol: "2010.SR", name: "SABIC", category: "Popular"),
+        DiscoverableStock(symbol: "2222.SR", name: "Saudi Aramco", category: "Popular"),
+        DiscoverableStock(symbol: "7010.SR", name: "STC", category: "Popular"),
+        DiscoverableStock(symbol: "4003.SR", name: "Extra", category: "Popular"),
+        DiscoverableStock(symbol: "2280.SR", name: "Almarai", category: "Popular"),
+        
+        // Banking Sector
+        DiscoverableStock(symbol: "1120.SR", name: "Al Rajhi Bank", category: "Banking"),
+        DiscoverableStock(symbol: "1180.SR", name: "SNB (AlAhli)", category: "Banking"),
+        DiscoverableStock(symbol: "1150.SR", name: "Alinma Bank", category: "Banking"),
+        DiscoverableStock(symbol: "1050.SR", name: "Saudi Fransi", category: "Banking"),
+        
+        // Energy & Utilities Sector
+        DiscoverableStock(symbol: "2222.SR", name: "Saudi Aramco", category: "Energy"),
+        DiscoverableStock(symbol: "5110.SR", name: "Saudi Electricity", category: "Energy"),
+        DiscoverableStock(symbol: "2082.SR", name: "ACWA Power", category: "Energy"),
+        DiscoverableStock(symbol: "4290.SR", name: "Aldrees", category: "Energy")
+    ]
+
+    // Filters our local static catalog depending on which picker pill is active
+    private var categorizedDiscoverableStocks: [DiscoverableStock] {
+        return discoverableStocks.filter { $0.category == selectedCategory }
+    }
+
     public init() {}
-    
+
     public var body: some View {
-        ZStack {
-            Color.rassahBaige
-                .ignoresSafeArea()
-            
+        ZStack(alignment: .bottom) {
+            Color("baige").ignoresSafeArea()
+
             VStack(spacing: 0) {
-                // Top Header Sheet Bar Navigation Asset
+                // Sheet navigation header
                 HStack {
-                    Button(action: {}) {
+                    Button { dismiss() } label: {
                         Image(systemName: "arrow.left")
                             .font(.system(size: 18, weight: .medium))
-                            .foregroundColor(.rassahBrown)
+                            .foregroundColor(Color("brown"))
                     }
-                    
                     Spacer()
-                    
                     Text("Add Stock")
-                        .font(.rassahSans(size: 17, weight: .semibold))
-                        .foregroundColor(.rassahBrown)
-                    
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundColor(Color("brown"))
                     Spacer()
-                    
-                    // Gamified Brick Counter Token Capsule
-                    HStack(spacing: 6) {
-                        Image(systemName: "cube.fill")
-                            .font(.system(size: 12))
-                            .foregroundColor(.rassahLeatherButton)
-                        Text("200")
-                            .font(.rassahSans(size: 13, weight: .bold))
-                            .foregroundColor(.rassahBrown)
-                    }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 4)
-                    .background(Color.rassahLeatherButton.opacity(0.25))
-                    .cornerRadius(RassahTokens.radiusCapsule)
+                    CoinBadge()
                 }
-                .padding(.horizontal, RassahTokens.paddingLarge)
+                .padding(.horizontal, 24)
                 .padding(.top, 20)
                 .padding(.bottom, 16)
-                
-                // Minimalist Search Field Row Component
+
+                // Search field
                 HStack {
                     Image(systemName: "magnifyingglass")
-                        .foregroundColor(.rassahBrown.opacity(0.4))
-                    TextField("Search Tadawul stocks...", text: $searchQuery)
-                        .font(.rassahSans(size: 15))
-                        .foregroundColor(.rassahBrown)
+                        .foregroundColor(Color("brown").opacity(0.4))
+                    TextField("Search global or Tadawul stocks...", text: Bindable(store).searchText)
+                        .font(.system(size: 15))
+                        .foregroundColor(Color("brown"))
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.characters)
+                        .onChange(of: store.searchText) { _, query in
+                            Task { await store.performSearch(query: query) }
+                        }
                 }
                 .padding(.vertical, 12)
                 .padding(.horizontal, 16)
-                .background(Color.rassahCardSecondary)
-                .cornerRadius(14)
-                .padding(.horizontal, RassahTokens.paddingLarge)
-                
-                // Horizontal Interactive Category Track Filter
-                HStack(spacing: 10) {
-                    ForEach(categories, id: \.self) { category in
-                        Button(action: {
-                            withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
-                                selectedCategory = category
+                .background(Color("dark baige"))
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+                .padding(.horizontal, 24)
+
+                // DYNAMIC LOOKUP LAYER (Shows when user types)
+                if !store.searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text("SEARCH RESULTS")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(Color("brown").opacity(0.4))
+                            .tracking(0.5)
+                            .padding(.horizontal, 24)
+                            .padding(.top, 20)
+                            .padding(.bottom, 8)
+
+                        ScrollView(.vertical, showsIndicators: false) {
+                            VStack(spacing: 4) {
+                                ForEach(store.searchResults) { item in
+                                    Button {
+                                        Task {
+                                            await store.addStock(symbol: item.symbol)
+                                            dismiss()
+                                        }
+                                    } label: {
+                                        HStack {
+                                            VStack(alignment: .leading, spacing: 4) {
+                                                Text(item.symbol)
+                                                    .font(.system(size: 16, weight: .bold))
+                                                    .foregroundColor(Color("brown"))
+                                                Text(item.longname ?? item.shortname ?? "Financial Asset")
+                                                    .font(.system(size: 13))
+                                                    .foregroundColor(Color("brown").opacity(0.6))
+                                                    .lineLimit(1)
+                                            }
+                                            Spacer()
+                                            Image(systemName: "plus.circle.fill")
+                                                .font(.system(size: 22))
+                                                .foregroundColor(Color("light brown"))
+                                        }
+                                        .padding(.vertical, 12)
+                                        .padding(.horizontal, 16)
+                                        .background(Color("white"))
+                                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                                    }
+                                }
                             }
-                        }) {
-                            Text(category)
-                                .font(.rassahSans(size: 13, weight: selectedCategory == category ? .semibold : .regular))
-                                .foregroundColor(selectedCategory == category ? .rassahWhite : .rassahBrown)
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 8)
-                                .background(selectedCategory == category ? Color.rassahBrown : Color.rassahWhite)
-                                .cornerRadius(RassahTokens.radiusCapsule)
-                                .shadow(color: Color.rassahBrown.opacity(0.03), radius: 4, x: 0, y: 2)
+                            .padding(.horizontal, 24)
                         }
                     }
-                    Spacer()
-                }
-                .padding(.horizontal, RassahTokens.paddingLarge)
-                .padding(.top, 20)
-                
-                // Section Title Label Node
-                HStack {
-                    Text("POPULAR IN SAUDI MARKET")
-                        .font(.rassahSans(size: 11, weight: .bold))
-                        .foregroundColor(.rassahBrown.opacity(0.4))
-                        .tracking(0.5)
-                    Spacer()
-                }
-                .padding(.horizontal, RassahTokens.paddingLarge)
-                .padding(.top, 24)
-                .padding(.bottom, 12)
-                
-                // Tadawul Asset Result Grid List Loop
-                ScrollView {
-                    VStack(spacing: 12) {
-                        StockRowComponent(ticker: "SB", name: "SABIC", sector: "Basic Materials", val: "350 SAR", change: "+2.3%", isPositive: true)
-                        StockRowComponent(ticker: "AR", name: "Aramco", sector: "Energy", val: "3,840 SAR", change: "+1.8%", isPositive: true)
-                        StockRowComponent(ticker: "STC", name: "STC", sector: "Telecom", val: "240 SAR", change: "-0.6%", isPositive: false)
-                        StockRowComponent(ticker: "AD", name: "Al Rajhi", sector: "Banking", val: "185 SAR", change: "+0.4%", isPositive: true)
+                } else {
+                    // CATEGORIZED QUICK-PICK LAYER (Shows by default when empty)
+                    VStack(spacing: 0) {
+                        HStack(spacing: 10) {
+                            ForEach(categories, id: \.self) { category in
+                                Button {
+                                    withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
+                                        selectedCategory = category
+                                    }
+                                } label: {
+                                    Text(category)
+                                        .font(.system(size: 13, weight: selectedCategory == category ? .semibold : .regular))
+                                        .foregroundColor(selectedCategory == category ? Color("white") : Color("brown"))
+                                        .padding(.horizontal, 16)
+                                        .padding(.vertical, 8)
+                                        .background(selectedCategory == category ? Color("brown") : Color("white"))
+                                        .clipShape(Capsule())
+                                }
+                            }
+                            Spacer()
+                        }
+                        .padding(.horizontal, 24)
+                        .padding(.top, 20)
+
+                        HStack {
+                            Text("\(selectedCategory.uppercased()) STOCKS")
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundColor(Color("brown").opacity(0.4))
+                                .tracking(0.5)
+                            Spacer()
+                        }
+                        .padding(.horizontal, 24)
+                        .padding(.top, 24)
+                        .padding(.bottom, 12)
+
+                        ScrollView(.vertical, showsIndicators: false) {
+                            VStack(spacing: 12) {
+                                ForEach(categorizedDiscoverableStocks) { stock in
+                                    Button {
+                                        Task {
+                                            await store.addStock(symbol: stock.symbol)
+                                            dismiss()
+                                        }
+                                    } label: {
+                                        DiscoverableRowComponent(stock: stock)
+                                    }
+                                }
+                            }
+                            .padding(.horizontal, 24)
+                            .padding(.bottom, 40)
+                        }
                     }
-                    .padding(.horizontal, RassahTokens.paddingLarge)
                 }
-                
-                // Absolute Position Lower Floating Button
-                Button(action: {}) {
-                    Text("Add to portfolio")
-                        .frame(maxWidth: .infinity)
-                }
-                .padding(.horizontal, RassahTokens.paddingLarge)
-                .padding(.bottom, 24)
             }
         }
     }
 }
 
-// MARK: - Reusable Stock List Entry Segment Component
-struct StockRowComponent: View {
-    let ticker: String
-    let name: String
-    let sector: String
-    let val: String
-    let change: String
-    let isPositive: Bool
-    
+// MARK: - Discoverable Static Row Component
+struct DiscoverableRowComponent: View {
+    let stock: DiscoverableStock
+
     var body: some View {
         HStack(spacing: 14) {
-            // Circle Monogram Node Block
-            Text(ticker)
-                .font(.rassahSans(size: 12, weight: .bold))
-                .foregroundColor(.rassahBrown)
+            Text(String(stock.name.prefix(3)).uppercased())
+                .font(.system(size: 12, weight: .bold))
+                .foregroundColor(Color("brown"))
                 .frame(width: 42, height: 42)
-                .background(Color.rassahCardSecondary)
+                .background(Color("dark baige"))
                 .clipShape(Circle())
-            
+
+            // FIXED: Changed parameter from 'assistant:' back to standard SwiftUI alignment syntax
             VStack(alignment: .leading, spacing: 4) {
-                Text(name)
-                    .font(.rassahSans(size: 15, weight: .semibold))
-                    .foregroundColor(.rassahBrown)
-                Text(sector)
-                    .font(.rassahSans(size: 12))
-                    .foregroundColor(.rassahBrown.opacity(0.5))
+                Text(stock.name)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(Color("brown"))
+                Text(stock.symbol)
+                    .font(.system(size: 12))
+                    .foregroundColor(Color("brown").opacity(0.5))
             }
             
             Spacer()
             
-            VStack(alignment: .trailing, spacing: 4) {
-                Text(val)
-                    .font(.rassahSans(size: 14, weight: .bold))
-                    .foregroundColor(.rassahBrown)
-                Text(change)
-                    .font(.rassahSans(size: 12, weight: .bold))
-                    .foregroundColor(isPositive ? .rassahDarkGreen : .rassahBurgundy)
-            }
+            Image(systemName: "plus.circle.fill")
+                .font(.system(size: 20))
+                .foregroundColor(Color("light brown"))
         }
-        .padding(.vertical, 8)
+        .padding(.vertical, 10)
+        .padding(.horizontal, 16)
+        .background(Color("white"))
+        .clipShape(RoundedRectangle(cornerRadius: 14))
     }
+}
+#Preview {
+    AddStockView()
+        .environment(AppStore())
 }

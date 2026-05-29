@@ -1,95 +1,74 @@
-//
-//  DesignSystem.swift
-//  Macro
-//
-//  Created by Ghida Abdullah al-Mughamer on 25/05/2026.
-//
+// Add these to the absolute bottom of your DesignSystem.swift file if they are missing
 
 import SwiftUI
 
-public enum RassahTokens {
-    public static let paddingXS: CGFloat = 4
-    public static let paddingSmall: CGFloat = 8
-    public static let paddingMedium: CGFloat = 16
-    public static let paddingLarge: CGFloat = 24
-    public static let paddingXL: CGFloat = 32
-    
-    public static let radiusSmall: CGFloat = 10
-    public static let radiusCard: CGFloat = 24
-    public static let radiusCapsule: CGFloat = 100
-}
+// MARK: - Reusable Coin Badge
+struct CoinBadge: View {
+    var count: Int = 0 // Simulating a fresh onboarding experience
 
-extension Color {
-    // Exact Asset Catalog Mapping
-    public static let rassahBaige = Color("white")
-    public static let rassahBrown = Color("brown")
-    public static let rassahBurgundy = Color("burgindy") // Matches your asset "burgindy"
-    public static let rassahDarkBaige = Color("dark baige")
-    public static let rassahDarkGreen = Color("dark green")
-    public static let rassahGreen = Color("green")
-    public static let rassahLightBrown = Color("light brown")
-    public static let rassahLightGreen = Color("light green")
-    public static let rassahLightPurple = Color("light purple")
-    public static let rassahPurple = Color("purple")
-    public static let rassahWhite = Color("white")
-    
-    // Aesthetic Semantic Mappings
-    public static let rassahLeatherButton = Color("light brown")
-    public static let rassahCardSecondary = Color("dark baige")
-}
-
-extension Font {
-    public static func rassahSerif(size: CGFloat) -> Font {
-        return Font.custom("DMSerifDisplay-Regular", size: size)
-    }
-    
-    public static func rassahSans(size: CGFloat, weight: Font.Weight = .regular) -> Font {
-        return Font.system(size: size, weight: weight, design: .default)
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "cube.fill")
+                .font(.system(size: 12))
+                .foregroundColor(Color("light brown"))
+            Text("\(count)")
+                .font(.system(size: 13, weight: .bold))
+                .foregroundColor(Color("brown"))
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 4)
+        .background(Color("light brown").opacity(0.18))
+        .clipShape(Capsule())
     }
 }
 
-// MARK: - Premium Tactile Shadows
-struct TactileShadowModifier: ViewModifier {
-    func body(content: Content) -> some View {
-        content
-            .shadow(color: Color.rassahBrown.opacity(0.12), radius: 15, x: 0, y: 10)
-            .shadow(color: Color.rassahBrown.opacity(0.04), radius: 4, x: 0, y: 2)
+// MARK: - Reusable Stock Avatar Monogram
+struct StockAvatarView: View {
+    let symbol: String
+    var size: CGFloat = 42
+
+    private var abbreviation: String {
+        let clean = symbol.replacingOccurrences(of: ".SR", with: "")
+        return String(clean.prefix(clean.count > 3 ? 2 : 3)).uppercased()
+    }
+
+    var body: some View {
+        Text(abbreviation)
+            .font(.system(size: abbreviation.count > 2 ? 11 : 13, weight: .bold))
+            .foregroundColor(Color("brown"))
+            .frame(width: size, height: size)
+            .background(Color("dark baige"))
+            .clipShape(Circle())
     }
 }
 
-extension View {
-    public func tactileShadow() -> some View {
-        self.modifier(TactileShadowModifier())
-    }
-}
+// MARK: - Shared Stat Header (Total Invested / Total Gain)
+struct StatHeaderView: View {
+    let totalInvested: Double
+    let totalGain: Double
 
-// MARK: - Premium Button Style Definition
-public struct RassahPrimaryButtonStyle: ButtonStyle {
-    // Explicit public initialization clears across target scopes
-    public init() {}
-    
-    public func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.rassahSans(size: 16, weight: .semibold))
-        
-            .foregroundColor(.white)
-        
-            .padding(.vertical, 14)
-        
-            .padding(.horizontal, RassahTokens.paddingLarge)
-        
-            .frame(maxWidth: .infinity)
-        
-            .background(Color.rassahLightBrown)
-        
-            .cornerRadius(RassahTokens.radiusCapsule)
-        
-            .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
-        
-            .animation(.easeOut(duration: 0.15), value: configuration.isPressed)
+    var body: some View {
+        HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Total invested")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(Color("brown").opacity(0.4))
+                Text("\(Int(totalInvested).formatted()) SAR")
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundColor(Color("purple"))
+            }
+            Spacer()
+            VStack(alignment: .trailing, spacing: 4) {
+                Text("Total gain")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(Color("brown").opacity(0.4))
+                Text("\(totalGain >= 0 ? "+" : "")\(Int(totalGain).formatted()) SAR")
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundColor(Color("dark green"))
+            }
+        }
+        .padding(.horizontal, 24)
+        .padding(.top, 24)
+        .padding(.bottom, 16)
     }
-}
-
-extension ButtonStyle where Self == RassahPrimaryButtonStyle {
-    public static var rassahPrimary: RassahPrimaryButtonStyle { RassahPrimaryButtonStyle() }
 }

@@ -1,83 +1,75 @@
 //
-//  MainContainerView.swift
-//  Macro
+//   MainContainerView.swift
+//   Macro
 //
-//  Created by Ghida Abdullah al-Mughamer on 25/05/2026.
+//   Created by Ghida Abdullah al-Mughamer on 25/05/2026.
 //
 
 import SwiftUI
 
-// MARK: - Navigation Tab Schema Mapping
+// MARK: - Tab Schema
 public enum RassahTab: Int, CaseIterable {
-    case summary = 0
-    case house = 1
+    case summary   = 0
+    case house     = 1
     case portfolio = 2
-    
-    /// Tab Titles matching your exact lowercase Figma labels
+
     var title: String {
         switch self {
-        case .summary: return "Summary"
-        case .house: return "House"
-        case .portfolio: return "portfolio" // Explicit lowercase 'p' from wireframe
+        case .summary:   return "Summary"
+        case .house:     return "House"
+        case .portfolio: return "portfolio"   // lowercase matches Figma label exactly
         }
     }
-    
-    /// Target platform system layout icons
+
     var icon: String {
         switch self {
-        case .summary: return "chart.bar.fill"       // Premium multi-segment chart shape
-        case .house: return "house.fill"             // Central house core node icon
-        case .portfolio: return "arrow.2.squarepath" // Looped dynamic asset flow indicator
+        case .summary:   return "chart.bar.fill"
+        case .house:     return "house.fill"
+        case .portfolio: return "arrow.2.squarepath"
         }
     }
 }
 
-// MARK: - Main Multi-Screen Container Blueprint
+// MARK: - Main Container
 struct MainContainerView: View {
-    @State private var selectedTab: RassahTab = .portfolio // Starts on portfolio screen by default
-    
+    @State private var selectedTab: RassahTab = .house
+
     var body: some View {
         ZStack(alignment: .bottom) {
-            Color("baige")
-                .ignoresSafeArea()
-            
-            // MARK: - Central Active Content Layer Switcher
-            VStack {
+            // FIXED: Using direct asset strings to bypass DesignSystem scope errors
+            Color("white").ignoresSafeArea()
+
+            // Active screen
+            Group {
                 switch selectedTab {
                 case .summary:
-                    AnalyticsView() // Your gorgeous complete segmented donut chart hub
+                    SummaryView()
                 case .house:
-                    // Empty placeholder layout state node for your next feature sprint
-                    VStack {
-                        Spacer()
-                        Text("Central House Hub Blueprint Area")
-                            .font(.system(size: 16, design: .default))
-                            .foregroundColor(Color("brown").opacity(0.3))
-                        Spacer()
-                    }
+                    AnalyticsView()
                 case .portfolio:
-                    PortfolioListView() // Your live accounting list ledger card stack
+                    PortfolioListView()
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            
-            // MARK: - Floating Capsule Navigation Controller Asset
+            .animation(.easeInOut(duration: 0.2), value: selectedTab)
+
+            // Floating capsule tab bar
             HStack(spacing: 0) {
                 ForEach(RassahTab.allCases, id: \.self) { tab in
-                    Button(action: {
-                        // Smooth tactile spring response when switching panels
+                    Button {
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
                             selectedTab = tab
                         }
-                    }) {
+                    } label: {
                         VStack(spacing: 6) {
                             Image(systemName: tab.icon)
-                                .font(.system(size: 21, weight: selectedTab == tab ? .semibold : .light))
+                                .font(.system(size: 20, weight: selectedTab == tab ? .semibold : .light))
                             Text(tab.title)
-                                .font(.system(size: 11, weight: selectedTab == tab ? .bold : .medium, design: .default))
+                                .font(.system(size: 11, weight: selectedTab == tab ? .bold : .medium))
                         }
-                        // Active selector maps to light brown, dormant items fade elegantly to brown opacity
-                        .foregroundColor(selectedTab == tab ? Color("light brown") : Color("brown").opacity(0.4))
+                        .foregroundColor(
+                            selectedTab == tab ? Color("light brown") : Color("brown").opacity(0.4)
+                        )
                         .frame(maxWidth: .infinity)
                     }
                 }
@@ -85,20 +77,18 @@ struct MainContainerView: View {
             .padding(.vertical, 14)
             .padding(.horizontal, 16)
             .background(
-                RoundedRectangle(cornerRadius: RassahTokens.radiusCapsule)
+                RoundedRectangle(cornerRadius: 100)
                     .fill(Color("white"))
-                    // Multi-layered subtle shadow framework mimicking your clay depths
                     .shadow(color: Color("brown").opacity(0.08), radius: 16, x: 0, y: 8)
-                    .shadow(color: Color("brown").opacity(0.02), radius: 4, x: 0, y: 2)
+                    .shadow(color: Color("brown").opacity(0.02), radius:  4, x: 0, y: 2)
             )
-            .padding(.horizontal, RassahTokens.paddingXL) // Contracts container into a floating capsule asset shape
-            .padding(.bottom, 24) // Floating lift clearance gap pushing bar cleanly above safe guidelines
+            .padding(.horizontal, 32)
+            .padding(.bottom, 24)
         }
-        .ignoresSafeArea(.keyboard, edges: .bottom) // UI security override layout protection
+        .ignoresSafeArea(.keyboard, edges: .bottom)
     }
 }
 
-// MARK: - Preview Pipeline Container
 #Preview {
     MainContainerView()
         .environment(AppStore())
