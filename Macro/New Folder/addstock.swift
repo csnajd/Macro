@@ -6,8 +6,9 @@
 //
 
 import SwiftUI
+import SwiftData
 
-// Simplified structure to represent discoverable stocks before fetching live API details
+// MARK: - Discoverable Stock Schema
 struct DiscoverableStock: Identifiable {
     var id: String { symbol }
     let symbol: String
@@ -15,14 +16,16 @@ struct DiscoverableStock: Identifiable {
     let category: String
 }
 
+// MARK: - Main Add Stock View
 public struct AddStockView: View {
     @Environment(AppStore.self) private var store
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext // SwiftData container context
 
     @State private var selectedCategory: String = "Popular"
     private let categories = ["Popular", "Banking", "Energy"]
 
-    // Core list of default Saudi Market (Tadawul) stocks categorized for quick picking
+    // Preset list of top Saudi Market (Tadawul) equities grouped by sector
     private let discoverableStocks = [
         // Popular / General Market
         DiscoverableStock(symbol: "2010.SR", name: "SABIC", category: "Popular"),
@@ -44,7 +47,6 @@ public struct AddStockView: View {
         DiscoverableStock(symbol: "4290.SR", name: "Aldrees", category: "Energy")
     ]
 
-    // Filters our local static catalog depending on which picker pill is active
     private var categorizedDiscoverableStocks: [DiscoverableStock] {
         return discoverableStocks.filter { $0.category == selectedCategory }
     }
@@ -56,7 +58,7 @@ public struct AddStockView: View {
             Color("baige").ignoresSafeArea()
 
             VStack(spacing: 0) {
-                // Sheet navigation header
+                // Header Row
                 HStack {
                     Button { dismiss() } label: {
                         Image(systemName: "arrow.left")
@@ -74,7 +76,7 @@ public struct AddStockView: View {
                 .padding(.top, 20)
                 .padding(.bottom, 16)
 
-                // Search field
+                // Search field bar
                 HStack {
                     Image(systemName: "magnifyingglass")
                         .foregroundColor(Color("brown").opacity(0.4))
@@ -93,53 +95,46 @@ public struct AddStockView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 14))
                 .padding(.horizontal, 24)
 
-                // DYNAMIC LOOKUP LAYER (Shows when user types)
+                // DYNAMIC SEARCH RESULTS LAYER
                 if !store.searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    VStack(alignment: .leading, spacing: 0) {
-                        Text("SEARCH RESULTS")
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundColor(Color("brown").opacity(0.4))
-                            .tracking(0.5)
-                            .padding(.horizontal, 24)
-                            .padding(.top, 20)
-                            .padding(.bottom, 8)
-
-                        ScrollView(.vertical, showsIndicators: false) {
-                            VStack(spacing: 4) {
-                                ForEach(store.searchResults) { item in
-                                    Button {
-                                        Task {
-                                            await store.addStock(symbol: item.symbol)
+                    ScrollView(.vertical, showsIndicators: false) {
+                        VStack(spacing: 4) {
+                            ForEach(store.searchResults) { item in
+                                Button {
+                                    Task {
+                                        if let liveStock = await store.addStock(symbol: item.symbol) {
+                                            saveDirectToDatabase(stock: liveStock)
                                             dismiss()
                                         }
-                                    } label: {
-                                        HStack {
-                                            VStack(alignment: .leading, spacing: 4) {
-                                                Text(item.symbol)
-                                                    .font(.system(size: 16, weight: .bold))
-                                                    .foregroundColor(Color("brown"))
-                                                Text(item.longname ?? item.shortname ?? "Financial Asset")
-                                                    .font(.system(size: 13))
-                                                    .foregroundColor(Color("brown").opacity(0.6))
-                                                    .lineLimit(1)
-                                            }
-                                            Spacer()
-                                            Image(systemName: "plus.circle.fill")
-                                                .font(.system(size: 22))
-                                                .foregroundColor(Color("light brown"))
-                                        }
-                                        .padding(.vertical, 12)
-                                        .padding(.horizontal, 16)
-                                        .background(Color("white"))
-                                        .clipShape(RoundedRectangle(cornerRadius: 12))
                                     }
+                                } label: {
+                                    HStack {
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text(item.symbol)
+                                                .font(.system(size: 16, weight: .bold))
+                                                .foregroundColor(Color("brown"))
+                                            Text(item.longname ?? item.shortname ?? "Financial Asset")
+                                                .font(.system(size: 13))
+                                                .foregroundColor(Color("brown").opacity(0.6))
+                                                .lineLimit(1)
+                                        }
+                                        Spacer()
+                                        Image(systemName: "plus.circle.fill")
+                                            .font(.system(size: 22))
+                                            .foregroundColor(Color("light brown"))
+                                    }
+                                    .padding(.vertical, 12)
+                                    .padding(.horizontal, 16)
+                                    .background(Color("white"))
+                                    .clipShape(RoundedRectangle(cornerRadius: 12))
                                 }
                             }
-                            .padding(.horizontal, 24)
                         }
+                        .padding(.horizontal, 24)
+                        .padding(.top, 16)
                     }
                 } else {
-                    // CATEGORIZED QUICK-PICK LAYER (Shows by default when empty)
+                    // SECTOR PILLS GRID LAYER
                     VStack(spacing: 0) {
                         HStack(spacing: 10) {
                             ForEach(categories, id: \.self) { category in
@@ -162,24 +157,15 @@ public struct AddStockView: View {
                         .padding(.horizontal, 24)
                         .padding(.top, 20)
 
-                        HStack {
-                            Text("\(selectedCategory.uppercased()) STOCKS")
-                                .font(.system(size: 11, weight: .bold))
-                                .foregroundColor(Color("brown").opacity(0.4))
-                                .tracking(0.5)
-                            Spacer()
-                        }
-                        .padding(.horizontal, 24)
-                        .padding(.top, 24)
-                        .padding(.bottom, 12)
-
                         ScrollView(.vertical, showsIndicators: false) {
                             VStack(spacing: 12) {
                                 ForEach(categorizedDiscoverableStocks) { stock in
                                     Button {
                                         Task {
-                                            await store.addStock(symbol: stock.symbol)
-                                            dismiss()
+                                            if let liveStock = await store.addStock(symbol: stock.symbol) {
+                                                saveDirectToDatabase(stock: liveStock)
+                                                dismiss()
+                                            }
                                         }
                                     } label: {
                                         DiscoverableRowComponent(stock: stock)
@@ -187,6 +173,7 @@ public struct AddStockView: View {
                                 }
                             }
                             .padding(.horizontal, 24)
+                            .padding(.top, 16)
                             .padding(.bottom, 40)
                         }
                     }
@@ -194,9 +181,17 @@ public struct AddStockView: View {
             }
         }
     }
+
+    // MARK: - Direct Database Committer logic
+    private func saveDirectToDatabase(stock: Stock) {
+        let newTransaction = TransactionItem(stockSymbol: stock.symbol, price: stock.price, quantity: 1)
+        modelContext.insert(newTransaction)
+        try? modelContext.save()
+        print("💾 SwiftData Success: Permanently committed \(stock.symbol)")
+    }
 }
 
-// MARK: - Discoverable Static Row Component
+// MARK: - Subview Row Render Component (FIXED: Added Back to Scope)
 struct DiscoverableRowComponent: View {
     let stock: DiscoverableStock
 
@@ -209,7 +204,6 @@ struct DiscoverableRowComponent: View {
                 .background(Color("dark baige"))
                 .clipShape(Circle())
 
-            // FIXED: Changed parameter from 'assistant:' back to standard SwiftUI alignment syntax
             VStack(alignment: .leading, spacing: 4) {
                 Text(stock.name)
                     .font(.system(size: 15, weight: .semibold))
@@ -230,8 +224,4 @@ struct DiscoverableRowComponent: View {
         .background(Color("white"))
         .clipShape(RoundedRectangle(cornerRadius: 14))
     }
-}
-#Preview {
-    AddStockView()
-        .environment(AppStore())
 }

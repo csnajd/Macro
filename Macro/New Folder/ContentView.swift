@@ -9,10 +9,9 @@ import SwiftUI
 import SwiftData
 
 struct ContentView: View {
-    @State private var hasStartedApp = false
-    // CRITICAL FIX: Instantiate the global store here at the root level!
     @State private var store = AppStore()
-    
+    @State private var hasStartedApp: Bool = false
+
     var body: some View {
         Group {
             if hasStartedApp {
@@ -23,7 +22,6 @@ struct ContentView: View {
                     .transition(.opacity)
             }
         }
-        // CRITICAL FIX: Inject the environment globally down into the view hierarchy
         .environment(store)
     }
 }
