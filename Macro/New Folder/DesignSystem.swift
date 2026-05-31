@@ -1,17 +1,24 @@
-// Add these to the absolute bottom of your DesignSystem.swift file if they are missing
+//
+//  DesignSystem.swift
+//  Macro
+//
+//  Created by Ghida Abdullah al-Mughamer on 31/05/2026.
+//
 
 import SwiftUI
 
 // MARK: - Reusable Coin Badge
 struct CoinBadge: View {
-    var count: Int = 0 // Simulating a fresh onboarding experience
+    @Environment(AppStore.self) private var store
 
     var body: some View {
         HStack(spacing: 6) {
-            Image(systemName: "cube.fill")
-                .font(.system(size: 12))
-                .foregroundColor(Color("light brown"))
-            Text("\(count)")
+            // ✅ Completely resolved asset name initialization
+            Image("brick")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 16, height: 16)
+            Text("\(store.brickCount)")
                 .font(.system(size: 13, weight: .bold))
                 .foregroundColor(Color("brown"))
         }
@@ -50,7 +57,7 @@ struct StatHeaderView: View {
     var body: some View {
         HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 4) {
-                Text("Total invested")
+                Text("Total Invested")
                     .font(.system(size: 12, weight: .medium))
                     .foregroundColor(Color("brown").opacity(0.4))
                 Text("\(Int(totalInvested).formatted()) SAR")

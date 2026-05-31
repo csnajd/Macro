@@ -2,7 +2,7 @@
 //  AnalyticsView.swift
 //  Macro
 //
-//  Created by Ghida Abdullah al-Mughamer on 25/05/2026.
+//  Created by Ghida Abdullah al-Mughamer on 31/05/2026.
 //
 
 import SwiftUI
@@ -10,158 +10,215 @@ import SwiftData
 
 struct AnalyticsView: View {
     @Environment(AppStore.self) private var store
-    
-    // Reads your true persistent database holdings directly from the device disk storage
     @Query private var savedTransactions: [TransactionItem]
-    
-    // MARK: - Automated Dynamic Calendar Targeting Logic
+
     private var dynamicTargetUpgradeDate: Date {
-        let calendar = Calendar.current
-        // Automatically grabs whatever the current year is right now from the system clock
-        let currentYear = calendar.component(.year, from: Date())
-        
-        // Dynamically builds the next upcoming milestone date without hardcoding the year
-        return calendar.date(from: DateComponents(year: currentYear, month: 6, day: 13)) ?? Date()
+        let cal = Calendar.current
+        let year = cal.component(.year, from: Date())
+        return cal.date(from: DateComponents(year: year, month: 6, day: 13)) ?? Date()
     }
-    
+
     private var dynamicProgressPercentage: CGFloat {
-        let totalDuration: TimeInterval = 30 * 24 * 60 * 60 // 30-day baseline sprint scale
+        let totalDuration: TimeInterval = 30 * 24 * 60 * 60
         let remaining = dynamicTargetUpgradeDate.timeIntervalSince(Date())
         let progress = (totalDuration - remaining) / totalDuration
-        
-        // Restricts horizontal bar values safely between 5% and 95% for clean UI continuity
         return CGFloat(min(max(progress, 0.05), 0.95))
     }
-    
+
     private var totalInvestedValue: Double {
         savedTransactions.reduce(0) { $0 + ($1.price * Double($1.quantity)) }
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            // MARK: - Top Header Metrics Linked to SwiftData
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Total invested")
-                        .font(.system(size: 14))
-                        .foregroundColor(.gray)
-                    Text("\(Int(totalInvestedValue)) SAR")
-                        .font(.system(size: 24, weight: .bold))
-                        .foregroundColor(Color("brown"))
-                }
-                Spacer()
-                VStack(alignment: .trailing, spacing: 4) {
-                    Text("Total gain")
-                        .font(.system(size: 14))
-                        .foregroundColor(.gray)
-                    
-                    let liveGain = store.portfolio.reduce(0.0) { $0 + $1.change }
-                    Text(String(format: "%@%.0f SAR", liveGain >= 0 ? "+" : "", liveGain))
-                        .font(.system(size: 24, weight: .bold))
-                        .foregroundColor(liveGain >= 0 ? Color("dark green") : Color("burgindy"))
-                }
-            }
-            .padding(.horizontal, 24)
-            .padding(.top, 16)
-            
-            Spacer()
+        ZStack {
+            // Background Canvas Tone
+            Color("baige").opacity(0.4)
+                .ignoresSafeArea()
 
-            // MARK: - Central Allocation Circle Chart Ring
-            ZStack {
-                Circle()
-                    .stroke(Color("brown").opacity(0.08), lineWidth: 24)
-                    .frame(width: 240, height: 240)
+            VStack(spacing: 0) {
                 
-                if savedTransactions.isEmpty {
-                    Circle()
-                        .trim(from: 0.0, to: 1.0)
-                        .stroke(Color("brown").opacity(0.05), style: StrokeStyle(lineWidth: 24, lineCap: .round))
-                } else {
-                    ForEach(Array(savedTransactions.enumerated()), id: \.offset) { index, transaction in
-                        let totalCount = Double(savedTransactions.count)
-                        let start = Double(index) / totalCount
-                        let end = Double(index + 1) / totalCount
-                        
-                        Circle()
-                            .trim(from: start, to: end - 0.02)
-                            .stroke(colorForSymbol(transaction.stockSymbol), style: StrokeStyle(lineWidth: 24, lineCap: .round))
-                    }
-                }
-                
-                VStack(spacing: 4) {
-                    Text("\(Int(totalInvestedValue))")
-                        .font(.system(size: 34, weight: .bold))
-                        .foregroundColor(Color("brown"))
-                    Text("SAR")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(.gray)
-                    Text("PORTFOLIO")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(.gray)
-                        .tracking(1.0)
-                }
-            }
-            .frame(width: 260, height: 260)
-            .rotationEffect(.degrees(-90))
-            
-            Spacer()
-            
-            // MARK: - Game Upgrade Progress Card Section
-            VStack(alignment: .leading, spacing: 14) {
+                // MARK: - 1. Top Utility Header Bar
                 HStack {
-                    Image(systemName: "building.columns.fill")
-                        .font(.system(size: 24))
-                        .foregroundColor(Color("light brown"))
-                        .frame(width: 48, height: 48)
-                        .background(Color("light brown").opacity(0.12))
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                    
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Next upgrade")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(.gray)
-                        
-                        // NATIVE APPLE DATE KIT: Render style dynamically adjusts to the device localization settings completely hands-free
-                        Text(dynamicTargetUpgradeDate, style: .date)
-                            .font(.system(size: 18, weight: .bold))
-                            .foregroundColor(Color("brown"))
+                    Image(systemName: "person.crop.circle")
+                        .font(.system(size: 24, weight: .light))
+                        .foregroundColor(Color("brown"))
+                    Spacer()
+                    CoinBadge()
+                }
+                .padding(.horizontal, 28)
+                .padding(.top, 12)
+                
+                // MARK: - 2. Performance Stats Header
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Total Invested")
+                            .font(.system(size: 12, weight: .regular))
+                            .foregroundColor(Color("brown").opacity(0.6))
+                        Text("\(Int(totalInvestedValue).formatted()) SAR")
+                            .font(.system(size: 21, weight: .bold))
+                            .foregroundColor(Color("purple"))
                     }
                     Spacer()
-                }
-                
-                // Slider framework progress bar layout
-                GeometryReader { geo in
-                    ZStack(alignment: .leading) {
-                        RoundedRectangle(cornerRadius: 100)
-                            .fill(Color("brown").opacity(0.06))
-                        RoundedRectangle(cornerRadius: 100)
-                            .fill(Color("light brown"))
-                            .frame(width: geo.size.width * dynamicProgressPercentage)
+                    VStack(alignment: .trailing, spacing: 6) {
+                        Text("Total gain")
+                            .font(.system(size: 12, weight: .regular))
+                            .foregroundColor(Color("brown").opacity(0.6))
+                        
+                        let liveGain = store.portfolio.reduce(0.0) { $0 + $1.change }
+                        Text(String(format: "%@%.0f SAR", liveGain >= 0 ? "+" : "", liveGain))
+                            .font(.system(size: 21, weight: .bold))
+                            .foregroundColor(Color("dark green"))
                     }
                 }
-                .frame(height: 8)
-            }
-            .padding(20)
-            .background(Color("white"))
-            .clipShape(RoundedRectangle(cornerRadius: 20))
-            .padding(.horizontal, 24)
-            .padding(.bottom, 140)
-        }
-        .onAppear {
-            Task {
-                for item in savedTransactions {
-                    _ = await store.addStock(symbol: item.stockSymbol)
+                .padding(.horizontal, 28)
+                .padding(.top, 24)
+
+                Spacer()
+
+                // MARK: - 3. Central DYNAMIC Allocation Ring
+                ZStack {
+                    Circle()
+                        .stroke(Color("white"), lineWidth: 26)
+                        .frame(width: 215, height: 215)
+
+                    ZStack {
+                        if savedTransactions.isEmpty {
+                            Circle()
+                                .trim(from: 0.0, to: 1.0)
+                                .stroke(Color("dark baige").opacity(0.3), style: StrokeStyle(lineWidth: 26, lineCap: .round))
+                        } else {
+                            let slices = computeDynamicSlices()
+                            ForEach(0..<slices.count, id: \.self) { index in
+                                let slice = slices[index]
+                                Circle()
+                                    .trim(from: slice.startPercent, to: slice.endPercent - 0.04)
+                                    .stroke(colorForIndex(index), style: StrokeStyle(lineWidth: 26, lineCap: .round))
+                            }
+                        }
+                    }
+                    .frame(width: 215, height: 215)
+                    .rotationEffect(.degrees(-90))
+
+                    // Center Labels
+                    VStack(spacing: 1) {
+                        Text("\(Int(totalInvestedValue).formatted())")
+                            .font(.system(size: 30, weight: .bold))
+                            .foregroundColor(Color("brown"))
+                        Text("SAR")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(Color("brown").opacity(0.7))
+                        Text("PORTFOLIO")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(Color("brown").opacity(0.5))
+                            .tracking(0.8)
+                            .padding(.top, 1)
+                        
+                        let totalChange = store.portfolio.reduce(0.0) { $0 + $1.change }
+                        let totalCurrentValue = store.portfolio.reduce(0.0) { $0 + $1.price }
+                        let realPercentage = totalCurrentValue > 0 ? (totalChange / totalCurrentValue) * 100 : 0.0
+                        
+                        HStack(spacing: 2) {
+                            Text(String(format: "%@%.1f%%", realPercentage >= 0 ? "+" : "", realPercentage))
+                            Image(systemName: realPercentage >= 0 ? "arrow.up.right" : "arrow.down.right")
+                        }
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(realPercentage >= 0 ? Color("dark green") : Color("burgindy"))
+                        .padding(.top, 3)
+                    }
                 }
+                .frame(width: 250, height: 250)
+
+                // Absorbs extra layout margins across devices to push the upgrade panel down natively
+                Spacer()
+
+                // MARK: - 4. Natively Pinned Bottom Upgrade Panel with Custom Brick Graphic
+                HStack(spacing: 14) {
+                    ZStack {
+                        Color("dark baige").opacity(0.3)
+                        Image("brick") // ✅ Custom asset graphic setup
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 24, height: 24)
+                    }
+                    .frame(width: 54, height: 54)
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text("Next upgrade in")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(Color("brown"))
+                        
+                        Text("2 days remaining")
+                            .font(.system(size: 12))
+                            .foregroundColor(Color("brown").opacity(0.6))
+                        
+                        GeometryReader { geo in
+                            ZStack(alignment: .leading) {
+                                RoundedRectangle(cornerRadius: 100)
+                                    .fill(Color("dark baige").opacity(0.2))
+                                RoundedRectangle(cornerRadius: 100)
+                                    .fill(Color("light brown"))
+                                    .frame(width: geo.size.width * 0.75)
+                            }
+                        }
+                        .frame(height: 6)
+                        .padding(.top, 2)
+                    }
+                    
+                    Spacer()
+                    
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(Color("brown").opacity(0.4))
+                        .padding(.trailing, 4)
+                }
+                .padding(14)
+                .background(Color("white"))
+                .clipShape(RoundedRectangle(cornerRadius: 18))
+                .shadow(color: Color("brown").opacity(0.04), radius: 10, x: 0, y: 4)
+                .padding(.horizontal, 24)
+                // ✅ FIXED: Systemic bottom boundary padding, grounding the card right over your custom tab line
+                .padding(.bottom, 96)
             }
         }
     }
-    
-    private func colorForSymbol(_ symbol: String) -> Color {
-        switch symbol {
-        case let s where s.starts(with: "2010"): return Color("purple")
-        case let s where s.starts(with: "7010"): return Color("burgindy")
-        case let s where s.starts(with: "1120"): return Color("light brown")
-        default:                                 return Color("dark green")
+
+    // MARK: - 5. True Real Allocation Math Logic
+    private struct WheelSlice {
+        let startPercent: Double
+        let endPercent: Double
+    }
+
+    private func computeDynamicSlices() -> [WheelSlice] {
+        guard totalInvestedValue > 0 else { return [] }
+        var list: [WheelSlice] = []
+        var currentAccumulator = 0.0
+        
+        for tx in savedTransactions {
+            let itemCostBasis = tx.price * Double(tx.quantity)
+            let itemPercentage = itemCostBasis / totalInvestedValue
+            
+            let start = currentAccumulator
+            let end = currentAccumulator + itemPercentage
+            
+            list.append(WheelSlice(startPercent: start, endPercent: end))
+            currentAccumulator = end
         }
+        return list
+    }
+
+    // MARK: - 6. Strict Asset Catalog Array Router Mapping
+    private func colorForIndex(_ index: Int) -> Color {
+        let strictColors = [
+            "green",
+            "light green",
+            "dark green",
+            "light brown",
+            "burgindy",
+            "purple",
+            "light purple"
+        ]
+        let selectedName = strictColors[index % strictColors.count]
+        return Color(selectedName)
     }
 }
