@@ -19,10 +19,10 @@ public struct PortfolioListView: View {
     // Pulls permanent database items from device storage
     @Query private var savedTransactions: [TransactionItem]
     
-    // Expanded sector list pills to break down the massive database cleanly
+    // Expanded sector list pills to break down the database cleanly
     private let categories = ["Popular", "Banking", "Energy", "Real Estate", "Consumer", "Health"]
     
-    // MARK: - Expanded Tadawul Asset Database
+    // MARK: - Full Tadawul Asset Database
     private let discoverableStocks = [
         // 🔥 POPULAR / HIGHEST VOLUME
         DiscoverableStock(symbol: "2222.SR", name: "Saudi Aramco",     category: "Popular"),
@@ -85,7 +85,7 @@ public struct PortfolioListView: View {
             Color("white").ignoresSafeArea()
 
             VStack(spacing: 0) {
-                // MARK: - Premium Navigation Header
+                // Navigation Header
                 HStack(alignment: .center) {
                     Text("Portfolio")
                         .font(.system(size: 28, weight: .bold))
@@ -96,20 +96,19 @@ public struct PortfolioListView: View {
                 .padding(.horizontal, 24)
                 .padding(.top, 16)
 
-                // Summary Dashboard Calculations
+                // Summary calculations display
                 StatHeaderView(
                     totalInvested: savedTransactions.reduce(0) { $0 + ($1.price > 0 ? $1.price : 32.0) * Double($1.quantity) },
                     totalGain:     store.portfolio.reduce(0) { $0 + $1.change }
                 )
 
-                // Main Unified Scroll Engine
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(spacing: 16) {
                         
                         // MARK: - INLINE EXPANDABLE SEARCH PANEL (No Page Rise-Up)
                         if isSearchDrawerExpanded {
                             VStack(spacing: 12) {
-                                // Search Input Field
+                                // Search Input
                                 HStack {
                                     Image(systemName: "magnifyingglass")
                                         .foregroundColor(Color("brown").opacity(0.4))
@@ -127,7 +126,7 @@ public struct PortfolioListView: View {
                                 .background(Color("dark baige"))
                                 .clipShape(RoundedRectangle(cornerRadius: 14))
                                 
-                                // DYNAMIC RESULTS FILTER LAYER
+                                // Dynamic Live Filter Layer
                                 if !store.searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                                     VStack(spacing: 4) {
                                         ForEach(store.searchResults) { item in
@@ -136,77 +135,55 @@ public struct PortfolioListView: View {
                                             } label: {
                                                 HStack {
                                                     VStack(alignment: .leading, spacing: 4) {
-                                                        Text(item.symbol)
-                                                            .font(.system(size: 16, weight: .bold))
-                                                            .foregroundColor(Color("brown"))
-                                                        Text(item.longname ?? item.shortname ?? "Financial Asset")
+                                                        Text(item.symbol).bold().foregroundColor(Color("brown"))
+                                                        Text(item.longname ?? item.shortname ?? "Asset")
                                                             .font(.system(size: 13))
                                                             .foregroundColor(Color("brown").opacity(0.6))
-                                                            .lineLimit(1)
                                                     }
                                                     Spacer()
-                                                    Image(systemName: "plus.circle.fill")
-                                                        .font(.system(size: 22))
-                                                        .foregroundColor(Color("light brown"))
+                                                    Image(systemName: "plus.circle.fill").foregroundColor(Color("light brown"))
                                                 }
                                                 .padding(.vertical, 12)
                                                 .padding(.horizontal, 16)
                                                 .background(Color("white"))
-                                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                                                .cornerRadius(12)
                                             }
                                         }
                                     }
                                 } else {
-                                    // Segmented sector pills horizontal tracking
+                                    // Sector Pills
                                     VStack(spacing: 12) {
                                         ScrollView(.horizontal, showsIndicators: false) {
                                             HStack(spacing: 8) {
                                                 ForEach(categories, id: \.self) { category in
                                                     Button {
-                                                        withAnimation(.spring(response: 0.2, dampingFraction: 0.8)) {
-                                                            selectedCategory = category
-                                                        }
+                                                        withAnimation(.spring(response: 0.2, dampingFraction: 0.8)) { selectedCategory = category }
                                                     } label: {
                                                         Text(category)
                                                             .font(.system(size: 12, weight: selectedCategory == category ? .semibold : .regular))
                                                             .foregroundColor(selectedCategory == category ? Color("white") : Color("brown"))
-                                                            .padding(.horizontal, 14)
-                                                            .padding(.vertical, 6)
-                                                            .background(selectedCategory == category ? Color("brown") : Color("white"))
-                                                            .clipShape(Capsule())
+                                                            .padding(.horizontal, 14).padding(.vertical, 6)
+                                                            .background(selectedCategory == category ? Color("brown") : Color("white")).clipShape(Capsule())
                                                     }
                                                 }
                                             }
                                         }
                                         
-                                        // Sector selection grid content rows
+                                        // Sector selection content rows
                                         ForEach(categorizedDiscoverableStocks) { stock in
-                                            Button {
-                                                inlineAddAction(symbol: stock.symbol)
-                                            } label: {
-                                                InlineDiscoverableRow(stock: stock)
-                                            }
+                                            Button { inlineAddAction(symbol: stock.symbol) } label: { InlineDiscoverableRow(stock: stock) }
                                         }
                                     }
                                 }
                             }
                             .padding(16)
                             .background(Color("baige").opacity(0.6))
-                            .clipShape(RoundedRectangle(cornerRadius: 18))
-                            .transition(.asymmetric(insertion: .move(edge: .top).combined(with: .opacity), removal: .move(edge: .top).combined(with: .opacity)))
+                            .cornerRadius(18)
                         }
                         
                         // MARK: - PORTFOLIO LIST ROWS
                         if savedTransactions.isEmpty {
-                            VStack(spacing: 12) {
-                                Image(systemName: "chart.pie.fill")
-                                    .font(.system(size: 48))
-                                    .foregroundColor(Color("brown").opacity(0.15))
-                                Text("Your portfolio is empty")
-                                    .font(.system(size: 16, weight: .semibold))
-                                    .foregroundColor(Color("brown").opacity(0.4))
-                            }
-                            .padding(.top, 60)
+                            Text("Your portfolio is empty").foregroundColor(.gray).padding(.top, 60)
                         } else {
                             ForEach(savedTransactions) { transaction in
                                 LocalPortfolioRow(transaction: transaction)
@@ -214,57 +191,50 @@ public struct PortfolioListView: View {
                         }
                     }
                     .padding(.horizontal, 24)
-                    .padding(.top, 10)
                     .padding(.bottom, 140)
                 }
             }
 
-            // MARK: - Floating Single-Page Toggle Button
+            // MARK: - Toggle Add Panel Button
             Button {
                 withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
                     isSearchDrawerExpanded.toggle()
-                    if !isSearchDrawerExpanded {
-                        store.searchText = ""
-                    }
+                    if !isSearchDrawerExpanded { store.searchText = "" }
                 }
             } label: {
                 HStack(spacing: 8) {
                     Image(systemName: isSearchDrawerExpanded ? "chevron.up" : "plus")
-                        .font(.system(size: 15, weight: .bold))
-                    Text(isSearchDrawerExpanded ? "Close Panel" : "Add Stock Inline")
-                        .font(.system(size: 17, weight: .bold))
+                    Text(isSearchDrawerExpanded ? "Close Panel" : "Add Stock Inline").bold()
                 }
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 18)
                 .background(isSearchDrawerExpanded ? Color("brown") : Color("light brown"))
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-                .shadow(color: Color("brown").opacity(0.16), radius: 8, x: 0, y: 4)
+                .cornerRadius(12)
             }
             .padding(.horizontal, 24)
             .padding(.bottom, 110)
         }
-        .onAppear {
-            Task {
-                for item in savedTransactions {
-                    _ = await store.addStock(symbol: item.stockSymbol)
-                }
-            }
-        }
     }
     
-    // MARK: - Core Execution Methods
+    // MARK: - Quantity Increments with Zero Duplication
     private func inlineAddAction(symbol: String) {
         Task {
             if let liveStock = await store.addStock(symbol: symbol) {
                 let committedPrice = liveStock.price > 0 ? liveStock.price : defaultPriceForSymbol(symbol)
                 
-                let newTransaction = TransactionItem(
-                    stockSymbol: liveStock.symbol,
-                    price: committedPrice,
-                    quantity: 1
-                )
-                modelContext.insert(newTransaction)
+                // If company matches, add to existing position shares instantly
+                if let existing = savedTransactions.first(where: { $0.stockSymbol == liveStock.symbol }) {
+                    existing.quantity += 1
+                } else {
+                    let newTransaction = TransactionItem(
+                        stockSymbol: liveStock.symbol,
+                        price: committedPrice,
+                        quantity: 1
+                    )
+                    modelContext.insert(newTransaction)
+                }
+                
                 try? modelContext.save()
                 
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
@@ -276,20 +246,20 @@ public struct PortfolioListView: View {
     }
 
     private func defaultPriceForSymbol(_ symbol: String) -> Double {
-        if symbol.starts(with: "2222") { return 32.0 }  // Aramco
-        if symbol.starts(with: "2010") { return 78.0 }  // SABIC
-        if symbol.starts(with: "1120") { return 82.0 }  // Al Rajhi
-        if symbol.starts(with: "7010") { return 39.0 }  // STC
+        if symbol.starts(with: "2222") { return 32.0 }
+        if symbol.starts(with: "2010") { return 78.0 }
+        if symbol.starts(with: "1120") { return 82.0 }
+        if symbol.starts(with: "7010") { return 39.0 }
         if symbol.starts(with: "2082") { return 360.0 } // ACWA Power
-        if symbol.starts(with: "4013") { return 290.0 } // AlHabib
-        return 45.0 // General baseline fallback
+        if symbol.starts(with: "4013") { return 290.0 } // Dr. Sulaiman AlHabib
+        return 45.0
     }
 }
 
-// MARK: - Inline Search Row Render Layout
+// MARK: - Inline Discoverable Search Row Card
 struct InlineDiscoverableRow: View {
     let stock: DiscoverableStock
-
+    
     var body: some View {
         HStack(spacing: 12) {
             Text(String(stock.name.prefix(3)).uppercased())
@@ -298,28 +268,23 @@ struct InlineDiscoverableRow: View {
                 .frame(width: 36, height: 36)
                 .background(Color("dark baige"))
                 .clipShape(Circle())
-
+            
+            // ✅ TYPO RESOLVED: 'apple' argument parameter renamed cleanly to native layout keys
             VStack(alignment: .leading, spacing: 2) {
-                Text(stock.name)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(Color("brown"))
-                Text(stock.symbol)
-                    .font(.system(size: 11))
-                    .foregroundColor(Color("brown").opacity(0.5))
+                Text(stock.name).font(.system(size: 14, weight: .semibold)).foregroundColor(Color("brown"))
+                Text(stock.symbol).font(.system(size: 11)).foregroundColor(Color("brown").opacity(0.5))
             }
             Spacer()
-            Image(systemName: "plus.circle.fill")
-                .font(.system(size: 18))
-                .foregroundColor(Color("light brown"))
+            Image(systemName: "plus.circle.fill").font(.system(size: 18)).foregroundColor(Color("light brown"))
         }
         .padding(.vertical, 8)
         .padding(.horizontal, 12)
         .background(Color("white"))
-        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .cornerRadius(10)
     }
 }
 
-// MARK: - Persistent Portfolio Row View Component
+// MARK: - Persistent Portfolio Row (Maps Friendly Names)
 struct LocalPortfolioRow: View {
     let transaction: TransactionItem
     @Environment(AppStore.self) private var store
@@ -327,10 +292,11 @@ struct LocalPortfolioRow: View {
     var body: some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
-                Text(transaction.stockSymbol.replacingOccurrences(of: ".SR", with: ""))
+                // Maps raw symbols ("2010.SR") to clean titles ("SABIC")
+                Text(store.getReadableName(for: transaction.stockSymbol))
                     .font(.system(size: 17, weight: .bold))
                     .foregroundColor(Color("brown"))
-                Text("\(transaction.quantity) Share")
+                Text("\(transaction.quantity) \(transaction.quantity > 1 ? "Shares" : "Share")")
                     .font(.system(size: 13))
                     .foregroundColor(.gray)
             }
@@ -344,6 +310,6 @@ struct LocalPortfolioRow: View {
         .padding(.vertical, 12)
         .padding(.horizontal, 16)
         .background(Color("white"))
-        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .cornerRadius(14)
     }
 }

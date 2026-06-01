@@ -80,30 +80,31 @@ final class AppStore {
     var searchText:    String        = ""
     var searchResults: [SearchQuote] = []
 
-    // MARK: - Gamified Brick Lifetime Calculation Logic
+    // Tracks base stock counts for application persistence state if needed
     var stocksAddedCount: Int {
         get { UserDefaults.standard.integer(forKey: "stocksAddedCount") }
         set { UserDefaults.standard.set(newValue, forKey: "stocksAddedCount") }
     }
 
-    var brickCount: Int { stocksAddedCount / 3 } // Every 3 stocks added = 1 brick milestone
+    // ✅ FIXED: Bricks now appear dynamically based on total earnings gains (1 Brick per 3.4 SAR)
+    var brickCount: Int {
+        let baseGain = portfolio.reduce(0.0) { $0 + $1.change }
+        guard baseGain > 0 else { return 0 }
+        return Int(baseGain / 3.4)
+    }
 
-    // MARK: - Dynamic Gamified Multiplier Calculations
-    // ✅ FIXED: When bricks add up, total earnings are multiplied by 3.4x per brick milestone
+    // MARK: - Dynamic Portfolio Calculations
     var totalInvested: Double {
-        let baseInvested = portfolio.reduce(0) { $0 + $1.price }
-        if brickCount > 0 {
-            return baseInvested * (3.4 * Double(brickCount))
-        }
-        return baseInvested
+        portfolio.reduce(0.0) { $0 + $1.price }
     }
     
     var totalGain: Double {
-        let baseGain = portfolio.reduce(0) { $0 + $1.change }
-        if brickCount > 0 {
-            return baseGain * (3.4 * Double(brickCount))
-        }
-        return baseGain
+        portfolio.reduce(0.0) { $0 + $1.change }
+    }
+    
+    // ✅ FIXED: Helper method to look up and return readable names from other view scopes
+    public func getReadableName(for symbol: String) -> String {
+        return localStockName(for: symbol)
     }
 
     // MARK: - Local Repository Map Dictionaries
