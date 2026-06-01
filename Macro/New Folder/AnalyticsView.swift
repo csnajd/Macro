@@ -11,6 +11,8 @@ import SwiftData
 struct AnalyticsView: View {
     @Environment(AppStore.self) private var store
     @Query private var savedTransactions: [TransactionItem]
+    
+    @State private var showHouseProgressionSheet = false
 
     private var dynamicTargetUpgradeDate: Date {
         let cal = Calendar.current
@@ -31,13 +33,12 @@ struct AnalyticsView: View {
 
     var body: some View {
         ZStack {
-            // Background Canvas Tone
-            Color("baige").opacity(0.4)
+            Color(red: 247/255, green: 246/255, blue: 242/255)
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
                 
-                // MARK: - 1. Top Utility Header Bar
+                // MARK: - Utility Header
                 HStack {
                     Image(systemName: "person.crop.circle")
                         .font(.system(size: 24, weight: .light))
@@ -48,7 +49,7 @@ struct AnalyticsView: View {
                 .padding(.horizontal, 28)
                 .padding(.top, 12)
                 
-                // MARK: - 2. Performance Stats Header
+                // MARK: - Main Stat Cards
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Total Invested")
@@ -75,7 +76,7 @@ struct AnalyticsView: View {
 
                 Spacer()
 
-                // MARK: - 3. Central DYNAMIC Allocation Ring
+                // MARK: - Central Wheel
                 ZStack {
                     Circle()
                         .stroke(Color("white"), lineWidth: 26)
@@ -99,7 +100,6 @@ struct AnalyticsView: View {
                     .frame(width: 215, height: 215)
                     .rotationEffect(.degrees(-90))
 
-                    // Center Labels
                     VStack(spacing: 1) {
                         Text("\(Int(totalInvestedValue).formatted())")
                             .font(.system(size: 30, weight: .bold))
@@ -128,62 +128,68 @@ struct AnalyticsView: View {
                 }
                 .frame(width: 250, height: 250)
 
-                // Absorbs extra layout margins across devices to push the upgrade panel down natively
                 Spacer()
 
-                // MARK: - 4. Natively Pinned Bottom Upgrade Panel with Custom Brick Graphic
-                HStack(spacing: 14) {
-                    ZStack {
-                        Color("dark baige").opacity(0.3)
-                        Image("brick") // ✅ Custom asset graphic setup
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 24, height: 24)
-                    }
-                    .frame(width: 54, height: 54)
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
-
-                    VStack(alignment: .leading, spacing: 5) {
-                        Text("Next upgrade in")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundColor(Color("brown"))
-                        
-                        Text("2 days remaining")
-                            .font(.system(size: 12))
-                            .foregroundColor(Color("brown").opacity(0.6))
-                        
-                        GeometryReader { geo in
-                            ZStack(alignment: .leading) {
-                                RoundedRectangle(cornerRadius: 100)
-                                    .fill(Color("dark baige").opacity(0.2))
-                                RoundedRectangle(cornerRadius: 100)
-                                    .fill(Color("light brown"))
-                                    .frame(width: geo.size.width * 0.75)
-                            }
+                // MARK: - Interactive Upgrade Action Panel
+                Button {
+                    showHouseProgressionSheet = true
+                } label: {
+                    HStack(spacing: 14) {
+                        ZStack {
+                            Color("dark baige").opacity(0.3)
+                            Image("brick")
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 24, height: 24)
                         }
-                        .frame(height: 6)
-                        .padding(.top, 2)
+                        .frame(width: 54, height: 54)
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
+
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text("Next upgrade in")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundColor(Color("brown"))
+                            
+                            Text("2 days remaining")
+                                .font(.system(size: 12))
+                                .foregroundColor(Color("brown").opacity(0.6))
+                            
+                            GeometryReader { geo in
+                                ZStack(alignment: .leading) {
+                                    RoundedRectangle(cornerRadius: 100)
+                                        .fill(Color("dark baige").opacity(0.2))
+                                    RoundedRectangle(cornerRadius: 100)
+                                        .fill(Color("light brown"))
+                                        .frame(width: geo.size.width * 0.75)
+                                }
+                            }
+                            .frame(height: 6)
+                            .padding(.top, 2)
+                        }
+                        
+                        Spacer()
+                        
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(Color("brown").opacity(0.4))
+                            .padding(.trailing, 4)
                     }
-                    
-                    Spacer()
-                    
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundColor(Color("brown").opacity(0.4))
-                        .padding(.trailing, 4)
+                    .padding(14)
+                    .background(Color("white"))
+                    .clipShape(RoundedRectangle(cornerRadius: 18))
+                    .shadow(color: Color("brown").opacity(0.04), radius: 10, x: 0, y: 4)
                 }
-                .padding(14)
-                .background(Color("white"))
-                .clipShape(RoundedRectangle(cornerRadius: 18))
-                .shadow(color: Color("brown").opacity(0.04), radius: 10, x: 0, y: 4)
+                .buttonStyle(PlainButtonStyle())
                 .padding(.horizontal, 24)
-                // ✅ FIXED: Systemic bottom boundary padding, grounding the card right over your custom tab line
-                .padding(.bottom, 96)
+                .padding(.bottom, 102)
             }
+        }
+        .sheet(isPresented: $showHouseProgressionSheet) {
+            HouseProgressionView()
+                .environment(store)
         }
     }
 
-    // MARK: - 5. True Real Allocation Math Logic
     private struct WheelSlice {
         let startPercent: Double
         let endPercent: Double
@@ -193,32 +199,19 @@ struct AnalyticsView: View {
         guard totalInvestedValue > 0 else { return [] }
         var list: [WheelSlice] = []
         var currentAccumulator = 0.0
-        
         for tx in savedTransactions {
             let itemCostBasis = tx.price * Double(tx.quantity)
             let itemPercentage = itemCostBasis / totalInvestedValue
-            
             let start = currentAccumulator
             let end = currentAccumulator + itemPercentage
-            
             list.append(WheelSlice(startPercent: start, endPercent: end))
             currentAccumulator = end
         }
         return list
     }
 
-    // MARK: - 6. Strict Asset Catalog Array Router Mapping
     private func colorForIndex(_ index: Int) -> Color {
-        let strictColors = [
-            "green",
-            "light green",
-            "dark green",
-            "light brown",
-            "burgindy",
-            "purple",
-            "light purple"
-        ]
-        let selectedName = strictColors[index % strictColors.count]
-        return Color(selectedName)
+        let strictColors = ["green", "light green", "dark green", "light brown", "burgindy", "purple", "light purple"]
+        return Color(strictColors[index % strictColors.count])
     }
 }

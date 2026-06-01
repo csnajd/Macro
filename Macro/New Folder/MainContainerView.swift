@@ -27,30 +27,24 @@ struct MainContainerView: View {
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            // Background Canvas
             Color("white")
                 .ignoresSafeArea()
 
-            // Active screen rendering frame context
             Group {
                 switch selectedTab {
                 case .summary:
                     SummaryView()
                 case .house:
-                    // ✅ FIXED: Direct parameter injection bypasses dependency timing deadlocks
-                    //           and prevents the Thread 1: EXC_BAD_ACCESS memory crash completely.
                     AnalyticsView()
                         .environment(store)
                 case .portfolio:
-                    // ✅ FIXED: Direct parameter injection bypasses dependency timing deadlocks
-                    //           and prevents the Thread 1: EXC_BAD_ACCESS memory crash completely.
                     PortfolioListView()
                         .environment(store)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            // MARK: - Floating Capsule Tab Bar Menu
+            // MARK: - Bottom Floating Capsule Tab Bar Menu
             HStack(spacing: 0) {
                 ForEach(RassahTab.allCases, id: \.self) { tab in
                     Spacer()
@@ -77,20 +71,25 @@ struct MainContainerView: View {
                 }
             }
             .padding(.horizontal, 12)
-            .padding(.vertical, 10)
+            .padding(.top, 10)
+            // Integrates beautifully with physical home indicators to touch the baseline glass cleanly
+            .padding(.bottom, safeAreaBottomPadding + 4)
             .background(
                 RoundedRectangle(cornerRadius: 100)
                     .fill(Color("white"))
                     .shadow(color: Color("brown").opacity(0.06), radius: 16, x: 0, y: -4)
             )
             .padding(.horizontal, 24)
-            .padding(.bottom, 34) // Floats cleanly above standard iOS home indicator lines
+            .padding(.bottom, 6)
         }
-        .ignoresSafeArea(.keyboard, edges: .bottom) // Prevents tab bar from jumping up when searching
+        .ignoresSafeArea(.keyboard, edges: .bottom)
     }
-}
-
-#Preview {
-    MainContainerView()
-        .environment(AppStore())
+    
+    private var safeAreaBottomPadding: CGFloat {
+        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+              let window = windowScene.windows.first else {
+            return 12
+        }
+        return window.safeAreaInsets.bottom > 0 ? 0 : 12
+    }
 }
