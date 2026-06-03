@@ -6,331 +6,355 @@
 //
 
 import SwiftUI
-import Observation
+import SwiftData
 
-// MARK: - App Language
-enum AppLanguage: String, CaseIterable {
-    case arabic = "ar"
-    case english = "en"
+public struct PortfolioListView: View {
+    @Environment(AppStore.self) private var store
+    @Environment(LanguageManager.self) private var lang
+    @Environment(\.modelContext) private var modelContext
 
-    var layoutDirection: LayoutDirection {
-        self == .arabic ? .rightToLeft : .leftToRight
+    @State private var isSearchDrawerExpanded: Bool = false
+    @State private var selectedCategory: String = "Popular"
+    @State private var buySymbol: BuyTarget? = nil
+    @State private var sellPosition: PortfolioMath.Position? = nil
+    @State private var pendingRemoval: PortfolioMath.Position? = nil
+
+    @Query private var transactions: [Transaction]
+
+    private let categories = ["Popular", "Banking", "Energy", "Real Estate", "Consumer", "Health"]
+
+    private let discoverableStocks = [
+        DiscoverableStock(symbol: "2222.SR", name: "Saudi Aramco",     category: "Popular"),
+        DiscoverableStock(symbol: "2010.SR", name: "SABIC",            category: "Popular"),
+        DiscoverableStock(symbol: "7010.SR", name: "STC",              category: "Popular"),
+        DiscoverableStock(symbol: "1120.SR", name: "Al Rajhi Bank",    category: "Popular"),
+        DiscoverableStock(symbol: "2082.SR", name: "ACWA Power",       category: "Popular"),
+        DiscoverableStock(symbol: "4003.SR", name: "Extra",            category: "Popular"),
+        DiscoverableStock(symbol: "2280.SR", name: "Almarai",          category: "Popular"),
+
+        DiscoverableStock(symbol: "1120.SR", name: "Al Rajhi Bank",    category: "Banking"),
+        DiscoverableStock(symbol: "1180.SR", name: "SNB (AlAhli)",     category: "Banking"),
+        DiscoverableStock(symbol: "1150.SR", name: "Alinma Bank",      category: "Banking"),
+        DiscoverableStock(symbol: "1050.SR", name: "Saudi Fransi",     category: "Banking"),
+        DiscoverableStock(symbol: "1060.SR", name: "SAIB",             category: "Banking"),
+        DiscoverableStock(symbol: "1020.SR", name: "Bank AlBilad",     category: "Banking"),
+        DiscoverableStock(symbol: "1030.SR", name: "Saudi Investment", category: "Banking"),
+
+        DiscoverableStock(symbol: "2222.SR", name: "Saudi Aramco",     category: "Energy"),
+        DiscoverableStock(symbol: "5110.SR", name: "Saudi Electricity",category: "Energy"),
+        DiscoverableStock(symbol: "2082.SR", name: "ACWA Power",       category: "Energy"),
+        DiscoverableStock(symbol: "4290.SR", name: "Aldrees",          category: "Energy"),
+        DiscoverableStock(symbol: "2020.SR", name: "SAFCO / SABIC AN", category: "Energy"),
+        DiscoverableStock(symbol: "2310.SR", name: "Sipchem",          category: "Energy"),
+        DiscoverableStock(symbol: "2060.SR", name: "Tasnee",           category: "Energy"),
+
+        DiscoverableStock(symbol: "4300.SR", name: "Dar Al Arkan",     category: "Real Estate"),
+        DiscoverableStock(symbol: "4090.SR", name: "Taiba Investments",category: "Real Estate"),
+        DiscoverableStock(symbol: "4150.SR", name: "Arriyadh Development", category: "Real Estate"),
+        DiscoverableStock(symbol: "4250.SR", name: "Jabal Omar",       category: "Real Estate"),
+        DiscoverableStock(symbol: "4190.SR", name: "Jarir Marketing",  category: "Real Estate"),
+
+        DiscoverableStock(symbol: "2280.SR", name: "Almarai",          category: "Consumer"),
+        DiscoverableStock(symbol: "4003.SR", name: "Extra",            category: "Consumer"),
+        DiscoverableStock(symbol: "4005.SR", name: "Anan Care (Cenomi)",category: "Consumer"),
+        DiscoverableStock(symbol: "4200.SR", name: "Aldrees Transport",category: "Consumer"),
+        DiscoverableStock(symbol: "6001.SR", name: "Halwani Bros",     category: "Consumer"),
+        DiscoverableStock(symbol: "4040.SR", name: "SAPTCO",           category: "Consumer"),
+
+        DiscoverableStock(symbol: "4009.SR", name: "Saudi German Health", category: "Health"),
+        DiscoverableStock(symbol: "4013.SR", name: "Dr. Sulaiman AlHabib", category: "Health"),
+        DiscoverableStock(symbol: "2070.SR", name: "Dallah Healthcare",   category: "Health"),
+        DiscoverableStock(symbol: "8010.SR", name: "Tawuniya Insurance",  category: "Health"),
+        DiscoverableStock(symbol: "8020.SR", name: "Bupa Arabia",         category: "Health")
+    ]
+
+    private var categorizedDiscoverableStocks: [DiscoverableStock] {
+        discoverableStocks.filter { $0.category == selectedCategory }
     }
 
-    var locale: Locale {
-        Locale(identifier: rawValue)
+    private var positions: [PortfolioMath.Position] {
+        PortfolioMath.allPositions(from: transactions)
     }
-}
 
-// MARK: - Language Manager
-// Holds the current language and looks up localized strings from an in-memory
-// table. Being @Observable, any view that reads `lang.current` or calls
-// `lang.t(...)` updates instantly when the language changes — which is what
-// makes the in-app toggle switch the whole UI without an app restart.
-@Observable
-@MainActor
-final class LanguageManager {
+    private var totalCostBasis: Double {
+        PortfolioMath.totalCostBasis(from: transactions)
+    }
 
-    var current: AppLanguage {
-        didSet {
-            UserDefaults.standard.set(current.rawValue, forKey: "appLanguage")
+    private var totalCurrentValue: Double {
+        positions.reduce(0.0) { sum, pos in
+            let price = store.livePrice(for: pos.symbol) ?? pos.averageBuyPrice
+            return sum + price * Double(pos.quantity)
         }
     }
 
-    init() {
-        let saved = UserDefaults.standard.string(forKey: "appLanguage")
-        self.current = AppLanguage(rawValue: saved ?? "") ?? .arabic
+    public init() {}
+
+    public var body: some View {
+        ZStack(alignment: .bottom) {
+            Color("white").ignoresSafeArea()
+
+            VStack(spacing: 0) {
+                HStack(alignment: .center) {
+                    Text(lang.t("portfolio.title"))
+                        .font(.system(size: 28, weight: .bold))
+                        .foregroundColor(Color("brown"))
+                    Spacer()
+                    CoinBadge()
+                }
+                .padding(.horizontal, 24)
+                .padding(.top, 16)
+
+                StatHeaderView(
+                    totalInvested: totalCostBasis,
+                    totalGain: totalCurrentValue - totalCostBasis
+                )
+
+                List {
+                    if isSearchDrawerExpanded {
+                        VStack(spacing: 12) {
+                            HStack {
+                                Image(systemName: "magnifyingglass")
+                                    .foregroundColor(Color("brown").opacity(0.4))
+                                TextField(lang.t("portfolio.searchPlaceholder"), text: Bindable(store).searchText)
+                                    .font(.system(size: 15))
+                                    .foregroundColor(Color("brown"))
+                                    .autocorrectionDisabled()
+                                    .textInputAutocapitalization(.never)
+                                    .onChange(of: store.searchText) { _, query in
+                                        Task { await store.performSearch(query: query) }
+                                    }
+                            }
+                            .padding(.vertical, 12)
+                            .padding(.horizontal, 16)
+                            .background(Color("dark baige"))
+                            .clipShape(RoundedRectangle(cornerRadius: 14))
+
+                            if !store.searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                VStack(spacing: 4) {
+                                    if store.searchResults.isEmpty {
+                                        Text(store.searchText.trimmingCharacters(in: .whitespacesAndNewlines).count < 2
+                                             ? lang.t("search.minChars")
+                                             : lang.t("search.noMatches"))
+                                            .font(.system(size: 13))
+                                            .foregroundColor(Color("brown").opacity(0.5))
+                                            .padding(.vertical, 12)
+                                    }
+                                    ForEach(Array(store.searchResults.enumerated()), id: \.offset) { _, item in
+                                        Button {
+                                            buySymbol = BuyTarget(symbol: item.symbol)
+                                        } label: {
+                                            HStack {
+                                                VStack(alignment: .leading, spacing: 4) {
+                                                    Text(store.getReadableName(for: item.symbol)).bold().foregroundColor(Color("brown"))
+                                                    Text(item.symbol).font(.system(size: 13)).foregroundColor(Color("brown").opacity(0.6))
+                                                }
+                                                Spacer()
+                                                Image(systemName: "plus.circle.fill").foregroundColor(Color("light brown"))
+                                            }
+                                            .padding(.vertical, 12).padding(.horizontal, 16).background(Color("white")).cornerRadius(12)
+                                        }
+                                    }
+                                }
+                            } else {
+                                VStack(spacing: 12) {
+                                    ScrollView(.horizontal, showsIndicators: false) {
+                                        HStack(spacing: 8) {
+                                            ForEach(categories, id: \.self) { category in
+                                                Button {
+                                                    withAnimation(.spring(response: 0.2, dampingFraction: 0.8)) { selectedCategory = category }
+                                                } label: {
+                                                    Text(lang.t("category.\(category)"))
+                                                        .font(.system(size: 12, weight: selectedCategory == category ? .semibold : .regular))
+                                                        .foregroundColor(selectedCategory == category ? Color("white") : Color("brown"))
+                                                        .padding(.horizontal, 14).padding(.vertical, 6)
+                                                        .background(selectedCategory == category ? Color("brown") : Color("white")).clipShape(Capsule())
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    ForEach(Array(categorizedDiscoverableStocks.enumerated()), id: \.offset) { _, stock in
+                                        Button {
+                                            buySymbol = BuyTarget(symbol: stock.symbol)
+                                        } label: { InlineDiscoverableRow(stock: stock) }
+                                        .buttonStyle(PlainButtonStyle())
+                                    }
+                                }
+                            }
+                        }
+                        .padding(16)
+                        .background(Color("baige").opacity(0.6))
+                        .cornerRadius(18)
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                        .listRowInsets(EdgeInsets())
+                        .padding(.horizontal, 24)
+                        .padding(.bottom, 8)
+                    }
+
+                    if positions.isEmpty {
+                        VStack {
+                            Spacer()
+                            Text(lang.t("portfolio.empty"))
+                                .foregroundColor(.gray)
+                                .frame(maxWidth: .infinity, alignment: .center)
+                            Spacer()
+                        }
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                    } else {
+                        ForEach(positions) { position in
+                            Button {
+                                sellPosition = position
+                            } label: {
+                                HoldingRow(position: position)
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
+                            .listRowInsets(EdgeInsets(top: 6, leading: 24, bottom: 6, trailing: 24))
+                            .swipeActions(edge: .trailing) {
+                                Button(role: .destructive) {
+                                    pendingRemoval = position
+                                } label: {
+                                    Label(lang.t("remove.swipe"), systemImage: "trash")
+                                }
+                            }
+                        }
+                    }
+
+                    Color.clear
+                        .frame(height: 190)
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                }
+                .listStyle(PlainListStyle())
+                .background(Color.clear)
+            }
+
+            Button {
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                    isSearchDrawerExpanded.toggle()
+                    if !isSearchDrawerExpanded { store.searchText = "" }
+                }
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: isSearchDrawerExpanded ? "chevron.up" : "plus")
+                    Text(isSearchDrawerExpanded ? lang.t("portfolio.closePanel") : lang.t("portfolio.addInline")).bold()
+                }
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 18)
+                .background(isSearchDrawerExpanded ? Color("brown") : Color("light brown"))
+                .cornerRadius(12)
+            }
+            .padding(.horizontal, 24)
+            .padding(.bottom, 120)
+        }
+        .task(id: heldSymbolsKey) {
+            await store.refreshLivePrices(for: positions.map { $0.symbol })
+        }
+        .sheet(item: $buySymbol, onDismiss: {
+            isSearchDrawerExpanded = false
+            store.searchText = ""
+        }) { target in
+            BuyDetailSheet(symbol: target.symbol)
+                .environment(store)
+                .environment(lang)
+        }
+        .sheet(item: $sellPosition) { position in
+            HoldingDetailSheet(position: position)
+                .environment(store)
+                .environment(lang)
+        }
+        .confirmationDialog(
+            lang.t("remove.confirmTitle"),
+            isPresented: Binding(
+                get: { pendingRemoval != nil },
+                set: { if !$0 { pendingRemoval = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button(lang.t("remove.confirm"), role: .destructive) {
+                if let p = pendingRemoval { removeHolding(p) }
+                pendingRemoval = nil
+            }
+            Button(lang.t("remove.cancel"), role: .cancel) {
+                pendingRemoval = nil
+            }
+        } message: {
+            Text(lang.t("remove.confirmBody"))
+        }
     }
 
-    func toggle() {
-        current = (current == .arabic) ? .english : .arabic
+    private var heldSymbolsKey: String {
+        positions.map { $0.symbol }.sorted().joined(separator: ",")
     }
 
-    /// Look up a localized string by key for the current language.
-    func t(_ key: String) -> String {
-        let table = (current == .arabic) ? Self.ar : Self.en
-        return table[key] ?? key
+    private func removeHolding(_ position: PortfolioMath.Position) {
+        let toDelete = transactions.filter { $0.symbol == position.symbol }
+        for tx in toDelete {
+            modelContext.delete(tx)
+        }
+        try? modelContext.save()
     }
+}
 
-    // MARK: - English Table
-    static let en: [String: String] = [
-        // Welcome
-        "welcome.tagline": "Your journey starts\nwith a brick.",
-        "welcome.getStarted": "Get started",
-        "welcome.signInApple": "Sign in with Apple",
-        // Tabs
-        "tab.summary": "Summary",
-        "tab.house": "House",
-        "tab.portfolio": "Portfolio",
-        // Shared stats
-        "stat.totalInvested": "Total Invested",
-        "stat.totalGain": "Total gain",
-        "unit.sar": "SAR",
-        "label.portfolio": "PORTFOLIO",
-        // Analytics / upgrade panel
-        "upgrade.nextIn": "Next upgrade in",
-        "upgrade.complete": "Estate complete",
-        "upgrade.builtFull": "Your estate is fully built",
-        "upgrade.bricksToNext": "%d bricks to next upgrade",   // %d = remaining
-        "upgrade.brickToNext": "%d brick to next upgrade",
-        // Portfolio list
-        "portfolio.title": "Portfolio",
-        "portfolio.searchPlaceholder": "Search global or Tadawul stocks...",
-        "portfolio.empty": "Your portfolio is empty",
-        "portfolio.addInline": "Add Stock Inline",
-        "portfolio.closePanel": "Close Panel",
-        "portfolio.shares": "Shares",
-        "portfolio.share": "Share",
-        // Buy sheet
-        "buy.title": "Add to Portfolio",
-        "buy.livePrice": "Live market price",
-        "buy.quantity": "Quantity",
-        "buy.pricePerShare": "Price per share",
-        "buy.date": "Purchase date",
-        "buy.totalCost": "Total cost",
-        "buy.confirm": "Add %d Shares",
-        "buy.confirmOne": "Add %d Share",
-        "buy.loadingPrice": "Loading price…",
-        "buy.priceUnavailable": "Price unavailable — enter manually",
-        "buy.enterPrice": "Enter a price to continue",
-        "buy.added": "Added to portfolio",
-        "buy.addedBody": "%d shares of %@ at %.2f %@ each.",
-        "remove.swipe": "Remove",
-        "remove.confirmTitle": "Remove this holding?",
-        "remove.confirmBody": "This deletes all buy and sell records for this stock. This can't be undone.",
-        "remove.confirm": "Remove",
-        "remove.cancel": "Cancel",
-        // Categories
-        "category.Popular": "Popular",
-        "category.Banking": "Banking",
-        "category.Energy": "Energy",
-        "category.Real Estate": "Real Estate",
-        "category.Consumer": "Consumer",
-        "category.Health": "Health",
-        "category.Saudi Market": "Saudi Market",
-        "category.Global": "Global",
-        // Holding detail / sell
-        "sell.sharesHeld": "Shares held",
-        "sell.avgBuyPrice": "Average buy price",
-        "sell.currentPrice": "Current price",
-        "sell.currentValue": "Current value",
-        "sell.unrealizedGain": "Unrealized gain",
-        "sell.loading": "Loading…",
-        "sell.howMany": "How many shares to sell?",
-        "sell.all": "All",
-        "sell.realizedGain": "Realized gain",
-        "sell.bricksEarned": "Bricks earned",
-        "sell.loadingPrice": "Loading price…",
-        "sell.sellShares": "Sell %d Shares",   // %d = quantity
-        "sell.sellShare": "Sell %d Share",
-        "sell.brickEarnedTitle": "brick earned!",
-        "sell.bricksEarnedTitle": "bricks earned!",
-        "sell.rewardBody": "Locked in from your profit.\nThey're yours to keep.",
-        "sell.complete": "Sale complete",
-        "sell.noBricks": "No bricks this time — they're only earned on a profit.",
-        "common.done": "Done",
-        // House progression
-        "house.back": "Back",
-        "house.blueprint": "Estate Blueprint",
-        "house.pipeline": "CONSTRUCTION PIPELINE",
-        "house.stagePrefix": "Stage",        // "Stage 2: ..."
-        "house.lifetimeScore": "Lifetime Brick Score: %d",
-        "house.requiresBricks": "Requires %d Bricks",
-        // Stage names
-        "stage.1.name": "Foundation Laying",
-        "stage.2.name": "Structural Framing",
-        "stage.3.name": "Brick Masonry",
-        "stage.4.name": "Roofing & Trim",
-        "stage.5.name": "Finished Estate",
-        // Stage descriptions
-        "stage.1.desc": "Clearing the land plotting vectors and casting raw baseline mortar.",
-        "stage.2.desc": "Erecting structural columns and boundary framing layout structures.",
-        "stage.3.desc": "Laying exterior structural insulation envelopes and stone details.",
-        "stage.4.desc": "Securing environmental barriers and framing premium structural eaves.",
-        "stage.5.desc": "The architectural model is fully developed, polished, and operational.",
-        // Summary titles (structural only; report content is Phase 5)
-        "summary.title": "Summary",
-        "summary.settings": "Summary Settings",
-        "summary.analyzing": "Analyzing your portfolio…",
-        "summary.addStocks": "Add stocks to generate a summary",
-        // Summary report content
-        "summary.viewFullReport": "View full report",
-        "summary.howCalculated": "How it's calculated",
-        "summary.initialValue": "Initial value",
-        "summary.positionGains": "Position gains",
-        "summary.positionLosses": "Position losses",
-        "summary.netChange": "Net change",
-        "summary.changeSinceBuy": "Portfolio changed %@%.1f%% since purchase.",
-        "summary.vsMarket": "You vs the market",
-        "summary.yourPortfolio": "Your portfolio",
-        "summary.tasiIndex": "TASI (market index)",
-        "summary.outperformed": "Outperformed the market by %@%.1f%%",
-        "summary.underperformed": "Trailed the market by %.1f%%",
-        "summary.sectorPerf": "Your sector performance",
-        "summary.forwardLook": "Looking ahead",
-        "summary.topMovers": "Top movers",
-        "summary.totalBricks": "Total bricks earned",
-        "summary.fromRealized": "From your realized profits",
-        "summary.nextLabel": "Next summary: %@",
-        // Week classification (English equivalents)
-        "week.exceptional": "An exceptional week",
-        "week.strongPositive": "A strong positive week",
-        "week.positive": "A positive week",
-        "week.calm": "A calm week",
-        "week.negative": "A negative week",
-        "week.tough": "A tough week",
-        // Forward-look text
-        "summary.forwardAhead": "Your portfolio is ahead of the market by %.1f%%. Keep it up.",
-        "summary.forwardBehind": "Your portfolio is under pressure this week. Watch your positions closely.",
-        // Week label prefix
-        "summary.weekPrefix": "Portfolio – week of %@",
-        // Since-started content
-        "summary.explainTitle": "How this is calculated",
-        "summary.explainBody": "Your portfolio value is the sum of your current holdings at today's market prices. The figure shown is the change since you started tracking.",
-        "summary.sinceStarted": "since you started",
-        "summary.sentencePositive": "Portfolio up %.1f%% since you started. %d of %d positions are positive. %@ contributed %@ %@.",
-        "summary.sentenceNegative": "Portfolio down %.1f%% since you started. %d of %d positions are positive. %@ contributed %@ %@.",
-        "summary.bricksSince": "Bricks earned since you started"
-    ]
+struct InlineDiscoverableRow: View {
+    let stock: DiscoverableStock
+    var body: some View {
+        HStack(spacing: 12) {
+            Text(String(stock.name.prefix(3)).uppercased()).font(.system(size: 11, weight: .bold)).foregroundColor(Color("brown"))
+                .frame(width: 36, height: 36).background(Color("dark baige")).clipShape(Circle())
+            VStack(alignment: .leading, spacing: 2) {
+                Text(stock.name).font(.system(size: 14, weight: .semibold)).foregroundColor(Color("brown"))
+                Text(stock.symbol).font(.system(size: 11)).foregroundColor(Color("brown").opacity(0.5))
+            }
+            Spacer()
+            Image(systemName: "plus.circle.fill").font(.system(size: 18)).foregroundColor(Color("light brown"))
+        }
+        .padding(.vertical, 8).padding(.horizontal, 12).background(Color("white")).cornerRadius(10)
+    }
+}
 
-    // MARK: - Arabic Table
-    static let ar: [String: String] = [
-        // Welcome
-        "welcome.tagline": "رحلتك تبدأ\nبطابوقة.",
-        "welcome.getStarted": "ابدأ الآن",
-        "welcome.signInApple": "تسجيل الدخول عبر Apple",
-        // Tabs
-        "tab.summary": "الملخص",
-        "tab.house": "المنزل",
-        "tab.portfolio": "المحفظة",
-        // Shared stats
-        "stat.totalInvested": "إجمالي الاستثمار",
-        "stat.totalGain": "إجمالي الربح",
-        "unit.sar": "ريال",
-        "label.portfolio": "المحفظة",
-        // Analytics / upgrade panel
-        "upgrade.nextIn": "الترقية القادمة",
-        "upgrade.complete": "اكتمل المنزل",
-        "upgrade.builtFull": "تم بناء منزلك بالكامل",
-        "upgrade.bricksToNext": "%d طابوقة للترقية القادمة",
-        "upgrade.brickToNext": "طابوقة واحدة للترقية القادمة",
-        // Portfolio list
-        "portfolio.title": "المحفظة",
-        "portfolio.searchPlaceholder": "ابحث عن أسهم سعودية أو عالمية...",
-        "portfolio.empty": "محفظتك فارغة",
-        "portfolio.addInline": "إضافة سهم",
-        "portfolio.closePanel": "إغلاق",
-        "portfolio.shares": "أسهم",
-        "portfolio.share": "سهم",
-        // Buy sheet
-        "buy.title": "إضافة إلى المحفظة",
-        "buy.livePrice": "السعر السوقي الحالي",
-        "buy.quantity": "الكمية",
-        "buy.pricePerShare": "سعر السهم",
-        "buy.date": "تاريخ الشراء",
-        "buy.totalCost": "التكلفة الإجمالية",
-        "buy.confirm": "إضافة %d أسهم",
-        "buy.confirmOne": "إضافة %d سهم",
-        "buy.loadingPrice": "جارٍ تحميل السعر…",
-        "buy.priceUnavailable": "السعر غير متاح — أدخله يدويًا",
-        "buy.enterPrice": "أدخل سعرًا للمتابعة",
-        "buy.added": "تمت الإضافة إلى المحفظة",
-        "buy.addedBody": "%d سهم من %@ بسعر %.2f %@ للسهم.",
-        "remove.swipe": "حذف",
-        "remove.confirmTitle": "حذف هذا المركز؟",
-        "remove.confirmBody": "سيؤدي هذا إلى حذف جميع سجلات الشراء والبيع لهذا السهم. لا يمكن التراجع.",
-        "remove.confirm": "حذف",
-        "remove.cancel": "إلغاء",
-        // Categories
-        "category.Popular": "الأكثر تداولًا",
-        "category.Banking": "البنوك",
-        "category.Energy": "الطاقة",
-        "category.Real Estate": "العقارات",
-        "category.Consumer": "الاستهلاكية",
-        "category.Health": "الصحة",
-        "category.Saudi Market": "السوق السعودي",
-        "category.Global": "عالمي",
-        // Holding detail / sell
-        "sell.sharesHeld": "الأسهم المملوكة",
-        "sell.avgBuyPrice": "متوسط سعر الشراء",
-        "sell.currentPrice": "السعر الحالي",
-        "sell.currentValue": "القيمة الحالية",
-        "sell.unrealizedGain": "الربح غير المحقق",
-        "sell.loading": "جارٍ التحميل…",
-        "sell.howMany": "كم سهمًا تريد بيعه؟",
-        "sell.all": "الكل",
-        "sell.realizedGain": "الربح المحقق",
-        "sell.bricksEarned": "الطابوق المكتسب",
-        "sell.loadingPrice": "جارٍ تحميل السعر…",
-        "sell.sellShares": "بيع %d أسهم",
-        "sell.sellShare": "بيع %d سهم",
-        "sell.brickEarnedTitle": "طابوقة مكتسبة!",
-        "sell.bricksEarnedTitle": "طابوق مكتسب!",
-        "sell.rewardBody": "محقق من أرباحك.\nأصبح ملكًا لك.",
-        "sell.complete": "تم البيع",
-        "sell.noBricks": "لا طابوق هذه المرة — يُكتسب فقط عند تحقيق ربح.",
-        "common.done": "تم",
-        // House progression
-        "house.back": "رجوع",
-        "house.blueprint": "مخطط المنزل",
-        "house.pipeline": "مراحل البناء",
-        "house.stagePrefix": "المرحلة",
-        "house.lifetimeScore": "إجمالي رصيد الطابوق: %d",
-        "house.requiresBricks": "يتطلب %d طابوقة",
-        // Stage names
-        "stage.1.name": "تأسيس الأساس",
-        "stage.2.name": "الهيكل الإنشائي",
-        "stage.3.name": "بناء الطابوق",
-        "stage.4.name": "السقف والتشطيب",
-        "stage.5.name": "المنزل المكتمل",
-        // Stage descriptions
-        "stage.1.desc": "تجهيز الأرض وتحديد المخطط وصبّ الأساس.",
-        "stage.2.desc": "إقامة الأعمدة الإنشائية وهيكل الحدود الخارجية.",
-        "stage.3.desc": "بناء الجدران الخارجية والعزل وتفاصيل الحجر.",
-        "stage.4.desc": "تركيب السقف والحواجز والتشطيبات الخارجية.",
-        "stage.5.desc": "اكتمل المنزل بالكامل وأصبح جاهزًا.",
-        // Summary titles
-        "summary.title": "الملخص",
-        "summary.settings": "إعدادات الملخص",
-        "summary.analyzing": "يتم تحليل محفظتك…",
-        "summary.addStocks": "أضف أسهمًا لتوليد الملخص",
-        // Summary report content
-        "summary.viewFullReport": "عرض التقرير الكامل",
-        "summary.howCalculated": "كيف تم الحساب",
-        "summary.initialValue": "القيمة الابتدائية",
-        "summary.positionGains": "أرباح المراكز",
-        "summary.positionLosses": "خسائر المراكز",
-        "summary.netChange": "صافي التغيير",
-        "summary.changeSinceBuy": "تغيّرت المحفظة %@%.1f%% منذ الشراء.",
-        "summary.vsMarket": "محفظتك مقابل السوق",
-        "summary.yourPortfolio": "محفظتك",
-        "summary.tasiIndex": "TASI (مؤشر السوق)",
-        "summary.outperformed": "تفوقت على السوق بـ %@%.1f%%",
-        "summary.underperformed": "تراجعت عن السوق بـ %.1f%%",
-        "summary.sectorPerf": "أداء قطاعات محفظتك",
-        "summary.forwardLook": "نظرة للأمام",
-        "summary.topMovers": "أبرز المتحركين",
-        "summary.totalBricks": "إجمالي الطابوق المكتسب",
-        "summary.fromRealized": "من أرباحك المحققة",
-        "summary.nextLabel": "الملخص القادم: %@",
-        // Week classification
-        "week.exceptional": "أسبوع استثنائي",
-        "week.strongPositive": "أسبوع إيجابي قوي",
-        "week.positive": "أسبوع إيجابي",
-        "week.calm": "أسبوع هادئ",
-        "week.negative": "أسبوع سلبي",
-        "week.tough": "أسبوع صعب",
-        // Forward-look text
-        "summary.forwardAhead": "محفظتك متقدمة على السوق بنسبة %.1f٪. واصل المتابعة.",
-        "summary.forwardBehind": "محفظتك تحت ضغط هذا الأسبوع. راقب مراكزك عن كثب.",
-        // Week label prefix
-        "summary.weekPrefix": "المحفظة – أسبوع %@",
-        // Since-started content
-        "summary.explainTitle": "كيف يتم الحساب",
-        "summary.explainBody": "قيمة محفظتك هي مجموع مراكزك الحالية بأسعار السوق اليوم. الرقم المعروض هو التغيّر منذ بدء التتبّع.",
-        "summary.sinceStarted": "منذ البداية",
-        "summary.sentencePositive": "ارتفعت المحفظة %.1f%% منذ البداية. %d من %d مراكز رابحة. ساهم %@ بـ %@ %@.",
-        "summary.sentenceNegative": "انخفضت المحفظة %.1f%% منذ البداية. %d من %d مراكز رابحة. ساهم %@ بـ %@ %@.",
-        "summary.bricksSince": "الطابوق المكتسب منذ البداية"
-    ]
+struct HoldingRow: View {
+    let position: PortfolioMath.Position
+    @Environment(AppStore.self) private var store
+    @Environment(LanguageManager.self) private var lang
+
+    var body: some View {
+        let price = store.livePrice(for: position.symbol) ?? position.averageBuyPrice
+        let currentValue = price * Double(position.quantity)
+        let costBasis = position.costBasis
+        let gain = currentValue - costBasis
+
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(store.getReadableName(for: position.symbol))
+                    .font(.system(size: 17, weight: .bold))
+                    .foregroundColor(Color("brown"))
+                Text("\(position.quantity) \(position.quantity > 1 ? lang.t("portfolio.shares") : lang.t("portfolio.share"))")
+                    .font(.system(size: 13))
+                    .foregroundColor(.gray)
+            }
+            Spacer()
+            VStack(alignment: .trailing, spacing: 4) {
+                Text("\(Int(currentValue)) \(lang.t("unit.sar"))")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(Color("brown"))
+                Text("\(Money.sar(gain)) \(lang.t("unit.sar"))")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(gain >= 0 ? Color("dark green") : Color("burgindy"))
+            }
+            Image(systemName: "chevron.right")
+                .font(.system(size: 12, weight: .bold))
+                .foregroundColor(Color("brown").opacity(0.3))
+                .padding(.leading, 4)
+        }
+        .padding(.vertical, 14)
+        .padding(.horizontal, 16)
+        .background(Color("white"))
+        .cornerRadius(14)
+        .shadow(color: Color.black.opacity(0.01), radius: 6, x: 0, y: 3)
+    }
 }
