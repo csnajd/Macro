@@ -10,25 +10,59 @@ import SwiftData
 
 struct AnalyticsView: View {
     @Environment(AppStore.self) private var store
-    @Query private var savedTransactions: [TransactionItem]
-    
+    @Environment(LanguageManager.self) private var lang
+    @Query private var transactions: [Transaction]
+
     @State private var showHouseProgressionSheet = false
 
-    private var dynamicTargetUpgradeDate: Date {
-        let cal = Calendar.current
-        let year = cal.component(.year, from: Date())
-        return cal.date(from: DateComponents(year: year, month: 6, day: 13)) ?? Date()
+    // MARK: - Derived portfolio numbers (single source of truth)
+
+    // Current holdings derived from the transaction event log.
+    private var positions: [PortfolioMath.Position] {
+        PortfolioMath.allPositions(from: transactions)
     }
 
-    private var dynamicProgressPercentage: CGFloat {
-        let totalDuration: TimeInterval = 30 * 24 * 60 * 60
-        let remaining = dynamicTargetUpgradeDate.timeIntervalSince(Date())
-        let progress = (totalDuration - remaining) / totalDuration
-        return CGFloat(min(max(progress, 0.05), 0.95))
+    // What the user paid for shares still held.
+    private var totalCostBasis: Double {
+        PortfolioMath.totalCostBasis(from: transactions)
     }
 
-    private var totalInvestedValue: Double {
-        savedTransactions.reduce(0) { $0 + ($1.price * Double($1.quantity)) }
+    // Current market value of held shares, using live prices where available,
+    // falling back to cost basis per-holding while a price is still loading
+    // (so the user never sees a scary 0 SAR).
+    private var totalCurrentValue: Double {
+        positions.reduce(0.0) { sum, pos in
+            let price = store.livePrice(for: pos.symbol) ?? pos.averageBuyPrice
+            return sum + price * Double(pos.quantity)
+        }
+    }
+
+    // Unrealized gain = current value − cost basis.
+    private var unrealizedGain: Double {
+        totalCurrentValue - totalCostBasis
+    }
+
+    private var gainPercentage: Double {
+        totalCostBasis > 0 ? (unrealizedGain / totalCostBasis) * 100 : 0.0
+    }
+
+    // MARK: - House upgrade progress (driven by lifetime bricks)
+
+    private var isEstateComplete: Bool {
+        HouseStages.nextStage(forBricks: store.brickCount) == nil
+    }
+
+    private var upgradeProgress: Double {
+        HouseStages.progress(forBricks: store.brickCount)
+    }
+
+    private var upgradeProgressLabel: String {
+        let remaining = HouseStages.bricksToNext(forBricks: store.brickCount)
+        if remaining <= 0 {
+            return lang.t("upgrade.builtFull")
+        }
+        let key = remaining == 1 ? "upgrade.brickToNext" : "upgrade.bricksToNext"
+        return String(format: lang.t(key), remaining)
     }
 
     var body: some View {
@@ -37,38 +71,52 @@ struct AnalyticsView: View {
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
-                
+
                 // MARK: - Utility Header
                 HStack {
-                    Image(systemName: "person.crop.circle")
-                        .font(.system(size: 24, weight: .light))
-                        .foregroundColor(Color("brown"))
+                    // Tapping the profile icon instantly toggles the app
+                    // language (Arabic ⇄ English). The small "ع/En" hint shows
+                    // which language tapping will switch TO.
+                    Button {
+                        lang.toggle()
+                    } label: {
+                        HStack(spacing: 3) {
+                            Text("ع")
+                                .font(.system(size: 17, weight: lang.current == .arabic ? .bold : .regular))
+                                .foregroundColor(Color("brown").opacity(lang.current == .arabic ? 1.0 : 0.4))
+                            Text("A")
+                                .font(.system(size: 15, weight: lang.current == .english ? .bold : .regular))
+                                .foregroundColor(Color("brown").opacity(lang.current == .english ? 1.0 : 0.4))
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 7)
+                        .background(Color("light brown").opacity(0.15))
+                        .clipShape(Capsule())
+                    }
                     Spacer()
                     CoinBadge()
                 }
                 .padding(.horizontal, 28)
                 .padding(.top, 12)
-                
+
                 // MARK: - Main Stat Cards
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("Total Invested")
+                        Text(lang.t("stat.totalInvested"))
                             .font(.system(size: 12, weight: .regular))
                             .foregroundColor(Color("brown").opacity(0.6))
-                        Text("\(Int(totalInvestedValue).formatted()) SAR")
+                        Text("\(Int(totalCostBasis).formatted()) \(lang.t("unit.sar"))")
                             .font(.system(size: 21, weight: .bold))
                             .foregroundColor(Color("purple"))
                     }
                     Spacer()
                     VStack(alignment: .trailing, spacing: 6) {
-                        Text("Total gain")
+                        Text(lang.t("stat.totalGain"))
                             .font(.system(size: 12, weight: .regular))
                             .foregroundColor(Color("brown").opacity(0.6))
-                        
-                        let liveGain = store.portfolio.reduce(0.0) { $0 + $1.change }
-                        Text(String(format: "%@%.0f SAR", liveGain >= 0 ? "+" : "", liveGain))
+                        Text("\(Money.sar(unrealizedGain)) \(lang.t("unit.sar"))")
                             .font(.system(size: 21, weight: .bold))
-                            .foregroundColor(Color("dark green"))
+                            .foregroundColor(unrealizedGain >= 0 ? Color("dark green") : Color("burgindy"))
                     }
                 }
                 .padding(.horizontal, 28)
@@ -83,17 +131,19 @@ struct AnalyticsView: View {
                         .frame(width: 215, height: 215)
 
                     ZStack {
-                        if savedTransactions.isEmpty {
+                        if positions.isEmpty {
                             Circle()
                                 .trim(from: 0.0, to: 1.0)
-                                .stroke(Color("dark baige").opacity(0.3), style: StrokeStyle(lineWidth: 26, lineCap: .round))
+                                .stroke(Color("dark baige").opacity(0.3),
+                                        style: StrokeStyle(lineWidth: 26, lineCap: .round))
                         } else {
                             let slices = computeDynamicSlices()
                             ForEach(0..<slices.count, id: \.self) { index in
                                 let slice = slices[index]
                                 Circle()
-                                    .trim(from: slice.startPercent, to: slice.endPercent - 0.04)
-                                    .stroke(colorForIndex(index), style: StrokeStyle(lineWidth: 26, lineCap: .round))
+                                    .trim(from: slice.startPercent, to: max(slice.startPercent, slice.endPercent - 0.04))
+                                    .stroke(colorForIndex(index),
+                                            style: StrokeStyle(lineWidth: 26, lineCap: .round))
                             }
                         }
                     }
@@ -101,28 +151,24 @@ struct AnalyticsView: View {
                     .rotationEffect(.degrees(-90))
 
                     VStack(spacing: 1) {
-                        Text("\(Int(totalInvestedValue).formatted())")
+                        Text("\(Int(totalCurrentValue).formatted())")
                             .font(.system(size: 30, weight: .bold))
                             .foregroundColor(Color("brown"))
-                        Text("SAR")
+                        Text(lang.t("unit.sar"))
                             .font(.system(size: 11, weight: .semibold))
                             .foregroundColor(Color("brown").opacity(0.7))
-                        Text("PORTFOLIO")
+                        Text(lang.t("label.portfolio"))
                             .font(.system(size: 10, weight: .bold))
                             .foregroundColor(Color("brown").opacity(0.5))
                             .tracking(0.8)
                             .padding(.top, 1)
-                        
-                        let totalChange = store.portfolio.reduce(0.0) { $0 + $1.change }
-                        let totalCurrentValue = store.portfolio.reduce(0.0) { $0 + $1.price }
-                        let realPercentage = totalCurrentValue > 0 ? (totalChange / totalCurrentValue) * 100 : 0.0
-                        
+
                         HStack(spacing: 2) {
-                            Text(String(format: "%@%.1f%%", realPercentage >= 0 ? "+" : "", realPercentage))
-                            Image(systemName: realPercentage >= 0 ? "arrow.up.right" : "arrow.down.right")
+                            Text(Money.percent(gainPercentage))
+                            Image(systemName: gainPercentage >= 0 ? "arrow.up.right" : "arrow.down.right")
                         }
                         .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(realPercentage >= 0 ? Color("dark green") : Color("burgindy"))
+                        .foregroundColor(gainPercentage >= 0 ? Color("dark green") : Color("burgindy"))
                         .padding(.top, 3)
                     }
                 }
@@ -131,6 +177,7 @@ struct AnalyticsView: View {
                 Spacer()
 
                 // MARK: - Interactive Upgrade Action Panel
+                // Real progress toward the next house stage, driven by bricks.
                 Button {
                     showHouseProgressionSheet = true
                 } label: {
@@ -146,29 +193,29 @@ struct AnalyticsView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 14))
 
                         VStack(alignment: .leading, spacing: 5) {
-                            Text("Next upgrade in")
+                            Text(isEstateComplete ? lang.t("upgrade.complete") : lang.t("upgrade.nextIn"))
                                 .font(.system(size: 14, weight: .bold))
                                 .foregroundColor(Color("brown"))
-                            
-                            Text("2 days remaining")
+
+                            Text(upgradeProgressLabel)
                                 .font(.system(size: 12))
                                 .foregroundColor(Color("brown").opacity(0.6))
-                            
+
                             GeometryReader { geo in
                                 ZStack(alignment: .leading) {
                                     RoundedRectangle(cornerRadius: 100)
                                         .fill(Color("dark baige").opacity(0.2))
                                     RoundedRectangle(cornerRadius: 100)
                                         .fill(Color("light brown"))
-                                        .frame(width: geo.size.width * 0.75)
+                                        .frame(width: geo.size.width * CGFloat(upgradeProgress))
                                 }
                             }
                             .frame(height: 6)
                             .padding(.top, 2)
                         }
-                        
+
                         Spacer()
-                        
+
                         Image(systemName: "chevron.right")
                             .font(.system(size: 12, weight: .bold))
                             .foregroundColor(Color("brown").opacity(0.4))
@@ -184,10 +231,19 @@ struct AnalyticsView: View {
                 .padding(.bottom, 102)
             }
         }
+        // Fetch live prices for everything held when this screen appears.
+        .task(id: heldSymbolsKey) {
+            await store.refreshLivePrices(for: positions.map { $0.symbol })
+        }
         .sheet(isPresented: $showHouseProgressionSheet) {
             HouseProgressionView()
                 .environment(store)
         }
+    }
+
+    // Stable key so .task re-runs when the set of held symbols changes.
+    private var heldSymbolsKey: String {
+        positions.map { $0.symbol }.sorted().joined(separator: ",")
     }
 
     private struct WheelSlice {
@@ -195,17 +251,19 @@ struct AnalyticsView: View {
         let endPercent: Double
     }
 
+    // Wheel slices are sized by each holding's share of current market value.
     private func computeDynamicSlices() -> [WheelSlice] {
-        guard totalInvestedValue > 0 else { return [] }
+        guard totalCurrentValue > 0 else { return [] }
         var list: [WheelSlice] = []
-        var currentAccumulator = 0.0
-        for tx in savedTransactions {
-            let itemCostBasis = tx.price * Double(tx.quantity)
-            let itemPercentage = itemCostBasis / totalInvestedValue
-            let start = currentAccumulator
-            let end = currentAccumulator + itemPercentage
+        var acc = 0.0
+        for pos in positions {
+            let price = store.livePrice(for: pos.symbol) ?? pos.averageBuyPrice
+            let value = price * Double(pos.quantity)
+            let fraction = value / totalCurrentValue
+            let start = acc
+            let end = acc + fraction
             list.append(WheelSlice(startPercent: start, endPercent: end))
-            currentAccumulator = end
+            acc = end
         }
         return list
     }

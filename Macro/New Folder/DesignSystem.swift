@@ -13,7 +13,6 @@ struct CoinBadge: View {
 
     var body: some View {
         HStack(spacing: 6) {
-            // ✅ Completely resolved asset name initialization
             Image("brick")
                 .resizable()
                 .scaledToFit()
@@ -53,25 +52,26 @@ struct StockAvatarView: View {
 struct StatHeaderView: View {
     let totalInvested: Double
     let totalGain: Double
+    @Environment(LanguageManager.self) private var lang
 
     var body: some View {
         HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 4) {
-                Text("Total Invested")
+                Text(lang.t("stat.totalInvested"))
                     .font(.system(size: 12, weight: .medium))
                     .foregroundColor(Color("brown").opacity(0.4))
-                Text("\(Int(totalInvested).formatted()) SAR")
+                Text("\(Int(totalInvested).formatted()) \(lang.t("unit.sar"))")
                     .font(.system(size: 22, weight: .bold))
                     .foregroundColor(Color("purple"))
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 4) {
-                Text("Total gain")
+                Text(lang.t("stat.totalGain"))
                     .font(.system(size: 12, weight: .medium))
                     .foregroundColor(Color("brown").opacity(0.4))
-                Text("\(totalGain >= 0 ? "+" : "")\(Int(totalGain).formatted()) SAR")
+                Text("\(Money.sar(totalGain)) \(lang.t("unit.sar"))")
                     .font(.system(size: 22, weight: .bold))
-                    .foregroundColor(Color("dark green"))
+                    .foregroundColor(totalGain < 0 ? Color("burgindy") : Color("dark green"))
             }
         }
         .padding(.horizontal, 24)

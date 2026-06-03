@@ -4,11 +4,11 @@
 //
 //   Created by Ghida Abdullah al-Mughamer on 25/05/2026.
 //
-
 import SwiftUI
 
 public struct WelcomView: View {
     @Binding var hasStartedApp: Bool
+    @Environment(LanguageManager.self) private var lang
     @State private var animateSlogan = false
 
     public init(hasStartedApp: Binding<Bool>) {
@@ -17,36 +17,44 @@ public struct WelcomView: View {
 
     public var body: some View {
         ZStack {
-            // FIXED: Swapped out custom extension for native Asset Catalog key string
             Color("baige").ignoresSafeArea()
 
             VStack {
-                // Language selector
+                // Language selector — now functional. Tapping a side switches
+                // the app language instantly; the active one is emphasized.
                 HStack {
                     Spacer()
-                    HStack(spacing: 4) { // FIXED: Direct padding token fallback
-                        Text("En")
-                            .font(.system(size: 18, weight: .medium))
-                            .foregroundColor(Color("brown"))
+                    HStack(spacing: 4) {
+                        Button {
+                            lang.current = .english
+                        } label: {
+                            Text("En")
+                                .font(.system(size: 18, weight: lang.current == .english ? .bold : .medium))
+                                .foregroundColor(Color("brown").opacity(lang.current == .english ? 1.0 : 0.5))
+                        }
                         Text("/")
                             .font(.system(size: 16))
                             .foregroundColor(Color("brown").opacity(0.3))
-                        Text("ع")
-                            .font(.system(size: 18, weight: .regular))
-                            .foregroundColor(Color("brown").opacity(0.5))
+                        Button {
+                            lang.current = .arabic
+                        } label: {
+                            Text("ع")
+                                .font(.system(size: 18, weight: lang.current == .arabic ? .bold : .regular))
+                                .foregroundColor(Color("brown").opacity(lang.current == .arabic ? 1.0 : 0.5))
+                        }
                     }
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
                     .background(Color("white").opacity(0.5))
                     .clipShape(Capsule())
                 }
-                .padding(.horizontal, 24) // FIXED: Standard spacing alignment
+                .padding(.horizontal, 24)
                 .padding(.top, 16)
 
                 Spacer()
 
                 // Brand block
-                VStack(spacing: 24) { // FIXED: Replaced layout structural spacing enum
+                VStack(spacing: 24) {
                     Image("brick")
                         .resizable()
                         .scaledToFit()
@@ -54,11 +62,11 @@ public struct WelcomView: View {
                         .shadow(color: Color("brown").opacity(0.1), radius: 10, x: 0, y: 5)
 
                     Text("Rassah")
-                        .font(.system(size: 50, weight: .bold, design: .serif)) // FIXED: Clean system serif fallback
+                        .font(.system(size: 50, weight: .bold, design: .serif))
                         .foregroundColor(Color("light brown"))
                         .padding(.top, 8)
 
-                    Text("Your journey starts\nwith a brick.")
+                    Text(lang.t("welcome.tagline"))
                         .font(.system(size: 24, weight: .medium))
                         .multilineTextAlignment(.center)
                         .foregroundColor(Color("light brown"))
@@ -75,7 +83,7 @@ public struct WelcomView: View {
                     Button(action: {
                         hasStartedApp = true
                     }) {
-                        Text("Get started")
+                        Text(lang.t("welcome.getStarted"))
                             .font(.system(size: 18, weight: .semibold))
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
@@ -89,7 +97,7 @@ public struct WelcomView: View {
                         HStack(spacing: 8) {
                             Image(systemName: "apple.logo")
                                 .font(.system(size: 20))
-                            Text("Sign in with Apple")
+                            Text(lang.t("welcome.signInApple"))
                                 .font(.system(size: 18, weight: .medium))
                         }
                         .foregroundColor(Color("brown"))
@@ -115,4 +123,5 @@ public struct WelcomView: View {
 #Preview {
     WelcomView(hasStartedApp: .constant(false))
         .environment(AppStore())
+        .environment(LanguageManager())
 }

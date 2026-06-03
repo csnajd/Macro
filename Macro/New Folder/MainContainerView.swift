@@ -19,10 +19,19 @@ public enum RassahTab: Int, CaseIterable {
         case .portfolio: return "arrow.2.squarepath"
         }
     }
+
+    var labelKey: String {
+        switch self {
+        case .summary:   return "tab.summary"
+        case .house:     return "tab.house"
+        case .portfolio: return "tab.portfolio"
+        }
+    }
 }
 
 struct MainContainerView: View {
     @Environment(AppStore.self) private var store
+    @Environment(LanguageManager.self) private var lang
     @State private var selectedTab: RassahTab = .house
 
     var body: some View {
@@ -48,7 +57,7 @@ struct MainContainerView: View {
             HStack(spacing: 0) {
                 ForEach(RassahTab.allCases, id: \.self) { tab in
                     Spacer()
-                    
+
                     Button {
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
                             selectedTab = tab
@@ -58,21 +67,20 @@ struct MainContainerView: View {
                             Image(systemName: tab.icon)
                                 .font(.system(size: 20))
                                 .foregroundColor(selectedTab == tab ? Color("light brown") : Color("brown").opacity(0.4))
-                            
-                            Text(tab == .summary ? "Summary" : tab == .house ? "House" : "Portfolio")
+
+                            Text(lang.t(tab.labelKey))
                                 .font(.system(size: 10, weight: selectedTab == tab ? .semibold : .regular))
                                 .foregroundColor(selectedTab == tab ? Color("light brown") : Color("brown").opacity(0.4))
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
                     }
-                    
+
                     Spacer()
                 }
             }
             .padding(.horizontal, 12)
             .padding(.top, 10)
-            // Integrates beautifully with physical home indicators to touch the baseline glass cleanly
             .padding(.bottom, safeAreaBottomPadding + 4)
             .background(
                 RoundedRectangle(cornerRadius: 100)
@@ -84,7 +92,7 @@ struct MainContainerView: View {
         }
         .ignoresSafeArea(.keyboard, edges: .bottom)
     }
-    
+
     private var safeAreaBottomPadding: CGFloat {
         guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
               let window = windowScene.windows.first else {

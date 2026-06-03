@@ -1,3 +1,10 @@
+//
+//  TransactionType.swift
+//  Macro
+//
+//  Created by Ghala Alsalem on 02/06/2026.
+//
+
 import Foundation
 import SwiftData
 
@@ -121,5 +128,26 @@ enum PortfolioMath {
     /// Total cost basis of shares currently held.
     static func totalCostBasis(from transactions: [Transaction]) -> Double {
         allPositions(from: transactions).reduce(0.0) { $0 + $1.costBasis }
+    }
+}
+
+// MARK: - Money formatting helper
+// Avoids the "-0" / "+0" problem: values that round to zero show as plain "0"
+// with no sign. Otherwise shows the sign for non-zero values.
+enum Money {
+    /// Formats a SAR amount with no decimals, fixing the -0/+0 sign issue.
+    static func sar(_ value: Double, showPlus: Bool = true) -> String {
+        let rounded = (value).rounded()
+        if rounded == 0 { return "0" }            // never "-0" or "+0"
+        let sign = rounded > 0 ? (showPlus ? "+" : "") : "-"
+        return "\(sign)\(Int(abs(rounded)))"
+    }
+
+    /// Formats a percentage, fixing the -0.0/+0.0 sign issue.
+    static func percent(_ value: Double) -> String {
+        let rounded = (value * 10).rounded() / 10
+        if rounded == 0 { return "0.0%" }
+        let sign = rounded > 0 ? "+" : "-"
+        return String(format: "%@%.1f%%", sign, abs(rounded))
     }
 }

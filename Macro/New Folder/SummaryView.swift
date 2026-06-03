@@ -4,6 +4,7 @@
 //
 
 import SwiftUI
+import SwiftData
 
 private enum SummaryExpansion {
     case collapsed
@@ -11,33 +12,86 @@ private enum SummaryExpansion {
     case full
 }
 
+// Helper: format a date per the current app language.
+private func localizedDate(_ date: Date, format: String, lang: LanguageManager) -> String {
+    let f = DateFormatter()
+    f.locale = lang.current.locale
+    f.dateFormat = format
+    return f.string(from: date)
+}
+
 struct SummaryView: View {
     @Environment(AppStore.self) private var store
+    @Environment(LanguageManager.self) private var lang
+    @Environment(\.modelContext) private var modelContext
+    @Query private var transactions: [Transaction]
+    @Query private var snapshots: [PortfolioSnapshot]
     @State private var aiService = AISummaryService()
     @State private var expansion: SummaryExpansion = .collapsed
+
+    private var positions: [PortfolioMath.Position] {
+        PortfolioMath.allPositions(from: transactions)
+    }
+
+    private var livePriceMap: [String: Double] {
+        var map: [String: Double] = [:]
+        for pos in positions {
+            if let p = store.livePrice(for: pos.symbol) { map[pos.symbol] = p }
+        }
+        return map
+    }
+
+    private var currentValue: Double {
+        positions.reduce(0.0) { sum, pos in
+            let price = store.livePrice(for: pos.symbol) ?? pos.averageBuyPrice
+            return sum + price * Double(pos.quantity)
+        }
+    }
+
+    // Record at most one snapshot per day; the first becomes the baseline.
+    private func recordSnapshotIfNeeded() {
+        guard !positions.isEmpty else { return }
+        guard !SnapshotMath.hasSnapshotToday(snapshots) else { return }
+        let snap = PortfolioSnapshot(totalValue: currentValue, brickCount: store.brickCount)
+        modelContext.insert(snap)
+        try? modelContext.save()
+    }
+
+    private func regenerate() async {
+        await store.refreshLivePrices(for: positions.map { $0.symbol })
+        recordSnapshotIfNeeded()
+        let baseline = SnapshotMath.baseline(snapshots)
+        await aiService.generateSummary(
+            positions: positions,
+            livePrices: livePriceMap,
+            realizedThisPeriod: PortfolioMath.totalRealizedGain(from: transactions),
+            bricksEarned: store.brickCount,
+            baselineValue: baseline?.totalValue,
+            baselineBricks: baseline?.brickCount ?? 0,
+            startDate: baseline?.date
+        )
+    }
 
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(spacing: 0) {
 
                 HStack {
-                    Text("الملخص")
+                    Text(lang.t("summary.title"))
                         .font(.system(size: 22, weight: .bold))
                         .foregroundColor(Color("brown"))
                     Spacer()
                     CoinBadge()
                 }
-                .environment(\.layoutDirection, .rightToLeft)
                 .padding(.horizontal, 24)
                 .padding(.top, 16)
 
                 HStack {
-                    Text("إعدادات الملخص")
+                    Text(lang.t("summary.settings"))
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundColor(Color("brown"))
                     Spacer()
                 }
-                .environment(\.layoutDirection, .rightToLeft)
                 .padding(.horizontal, 24)
                 .padding(.top, 20)
                 .padding(.bottom, 12)
@@ -66,12 +120,8 @@ struct SummaryView: View {
             }
         }
         .background(Color("white").ignoresSafeArea())
-        .environment(\.layoutDirection, .rightToLeft)
-        .task {
-            await aiService.generateSummary(portfolio: store.portfolio)
-        }
-        .onChange(of: store.portfolio.count) { _, _ in
-            Task { await aiService.generateSummary(portfolio: store.portfolio) }
+        .task(id: positions.map { $0.symbol }.sorted().joined(separator: ",")) {
+            await regenerate()
         }
     }
 }
@@ -81,6 +131,12 @@ private struct CollapsedCard: View {
     let summary: WeeklySummary
     @Binding var expansion: SummaryExpansion
     @Environment(AppStore.self) private var store
+    @Environment(LanguageManager.self) private var lang
+
+    private var weekLabel: String {
+        String(format: lang.t("summary.weekPrefix"),
+                localizedDate(summary.weekDate, format: "d MMMM", lang: lang))
+    }
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 0) {
@@ -93,23 +149,23 @@ private struct CollapsedCard: View {
                         .font(.system(size: 12, weight: .medium))
                         .foregroundColor(Color("brown").opacity(0.4))
                     Spacer()
-                    Text(summary.weekLabel)
+                    Text(weekLabel)
                         .font(.system(size: 13, weight: .medium))
                         .foregroundColor(Color("brown").opacity(0.6))
                 }
             }
             .padding(.bottom, 8)
 
-            Text(String(format: "%@%.0f SAR", summary.totalChange >= 0 ? "+" : "", summary.totalChange))
+            Text("\(Money.sar(summary.totalChange)) \(lang.t("unit.sar"))")
                 .font(.system(size: 34, weight: .bold, design: .serif))
-                .foregroundColor(Color("dark green"))
+                .foregroundColor(summary.totalChange >= 0 ? Color("dark green") : Color("burgindy"))
                 .frame(maxWidth: .infinity, alignment: .trailing)
 
             SparklineView()
                 .frame(height: 48)
                 .padding(.vertical, 8)
 
-            Text(summary.weekClassification + " — " + summary.marketDriver)
+            Text(lang.t(summary.weekClassificationKey))
                 .font(.system(size: 13))
                 .foregroundColor(Color("brown").opacity(0.6))
                 .multilineTextAlignment(.trailing)
@@ -119,7 +175,7 @@ private struct CollapsedCard: View {
 
             MoversList(portfolio: Array(store.portfolio.prefix(3)))
 
-            NextFooter(label: summary.nextSummaryLabel)
+            NextFooter(date: summary.nextSummaryDate)
         }
         .padding(16)
         .background(Color("baige"))
@@ -132,6 +188,12 @@ private struct ExpandedCard: View {
     let summary: WeeklySummary
     @Binding var expansion: SummaryExpansion
     @Environment(AppStore.self) private var store
+    @Environment(LanguageManager.self) private var lang
+
+    private var weekLabel: String {
+        String(format: lang.t("summary.weekPrefix"),
+                localizedDate(summary.weekDate, format: "d MMMM", lang: lang))
+    }
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 0) {
@@ -144,37 +206,45 @@ private struct ExpandedCard: View {
                         .font(.system(size: 12, weight: .medium))
                         .foregroundColor(Color("brown").opacity(0.4))
                     Spacer()
-                    Text(summary.weekLabel)
+                    Text(weekLabel)
                         .font(.system(size: 13, weight: .medium))
                         .foregroundColor(Color("brown").opacity(0.6))
                 }
             }
             .padding(.bottom, 8)
 
-            Text(String(format: "%@%.0f SAR", summary.totalChange >= 0 ? "+" : "", summary.totalChange))
+            Text("\(Money.sar(summary.totalChange)) \(lang.t("unit.sar"))")
                 .font(.system(size: 34, weight: .bold, design: .serif))
-                .foregroundColor(Color("dark green"))
+                .foregroundColor(summary.totalChange >= 0 ? Color("dark green") : Color("burgindy"))
                 .frame(maxWidth: .infinity, alignment: .trailing)
 
             VStack(alignment: .trailing, spacing: 10) {
-                Text("كيف تم الحساب")
+                Text(lang.t("summary.howCalculated"))
                     .font(.system(size: 14, weight: .bold))
                     .foregroundColor(Color("brown"))
                     .frame(maxWidth: .infinity, alignment: .trailing)
                     .padding(.bottom, 2)
 
-                CalcRow(label: "القيمة الابتدائية",
-                        value: String(format: "%.0f SAR", summary.portfolioValue))
-                CalcRow(label: "أرباح المراكز",
-                        value: String(format: "+%.0f SAR", summary.portfolioGains),
+                // Plain-English (or Arabic) explanation of the number.
+                Text(lang.t("summary.explainBody"))
+                    .font(.system(size: 12))
+                    .foregroundColor(Color("brown").opacity(0.65))
+                    .multilineTextAlignment(.trailing)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .padding(.bottom, 4)
+
+                CalcRow(label: lang.t("summary.initialValue"),
+                        value: String(format: "%.0f %@", summary.portfolioValue, lang.t("unit.sar")))
+                CalcRow(label: lang.t("summary.positionGains"),
+                        value: String(format: "+%.0f %@", summary.portfolioGains, lang.t("unit.sar")),
                         color: Color("dark green"))
-                CalcRow(label: "خسائر المراكز",
-                        value: String(format: "%.0f SAR", summary.portfolioLosses),
+                CalcRow(label: lang.t("summary.positionLosses"),
+                        value: String(format: "%.0f %@", summary.portfolioLosses, lang.t("unit.sar")),
                         color: Color("burgindy"))
                 Divider()
-                CalcRow(label: "صافي التغيير",
-                        value: String(format: "%@%.0f SAR", summary.netChange >= 0 ? "+" : "", summary.netChange),
-                        color: Color("dark green"),
+                CalcRow(label: lang.t("summary.netChange"),
+                        value: "\(Money.sar(summary.netChange)) \(lang.t("unit.sar"))",
+                        color: summary.netChange >= 0 ? Color("dark green") : Color("burgindy"),
                         bold: true)
             }
             .padding(14)
@@ -188,7 +258,7 @@ private struct ExpandedCard: View {
                 HStack {
                     Image(systemName: "chevron.left")
                         .font(.system(size: 12))
-                    Text(summary.marketDriver)
+                    Text(lang.t("summary.viewFullReport"))
                         .font(.system(size: 13))
                         .multilineTextAlignment(.trailing)
                         .lineLimit(2)
@@ -202,7 +272,7 @@ private struct ExpandedCard: View {
 
             MoversList(portfolio: Array(store.portfolio.prefix(3)))
 
-            NextFooter(label: summary.nextSummaryLabel)
+            NextFooter(date: summary.nextSummaryDate)
         }
         .padding(16)
         .background(Color("baige"))
@@ -215,6 +285,12 @@ private struct FullReport: View {
     let summary: WeeklySummary
     let portfolio: [Stock]
     @Binding var expansion: SummaryExpansion
+    @Environment(LanguageManager.self) private var lang
+
+    private var weekLabel: String {
+        String(format: lang.t("summary.weekPrefix"),
+                localizedDate(summary.weekDate, format: "d MMMM", lang: lang))
+    }
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 0) {
@@ -227,46 +303,56 @@ private struct FullReport: View {
                         .font(.system(size: 12, weight: .medium))
                         .foregroundColor(Color("brown").opacity(0.4))
                     Spacer()
-                    Text(summary.weekLabel)
+                    Text(weekLabel)
                         .font(.system(size: 13, weight: .medium))
                         .foregroundColor(Color("brown").opacity(0.6))
                 }
             }
 
-            Text(String(format: "ارتفعت المحفظة %.1f%% خلال 7 أيام.", summary.weeklyChangePercent))
+            // Detailed summary sentence: % since started, positions positive,
+            // best mover's contribution. All real, from holdings + baseline.
+            Text(String(format: lang.t(summary.sinceStartChange >= 0 ? "summary.sentencePositive" : "summary.sentenceNegative"),
+                        abs(summary.sinceStartPercent),
+                        summary.positionsPositive,
+                        summary.positionsTotal,
+                        summary.bestStockName,
+                        Money.sar(summary.bestContribution),
+                        lang.t("unit.sar")))
                 .font(.system(size: 13))
                 .foregroundColor(Color("brown").opacity(0.75))
                 .multilineTextAlignment(.trailing)
                 .padding(.top, 8)
 
-            // كيف تم الحساب
-            STitle("كيف تم الحساب")
+            // محفظتك مقابل السوق — TASI حقيقي
+            STitle(lang.t("summary.vsMarket"))
             VStack(spacing: 8) {
                 HStack {
-                    Text(String(format: "+%.1f%%", summary.weeklyChangePercent))
+                    Text(Money.percent(summary.weeklyChangePercent))
                         .font(.system(size: 13, weight: .bold))
-                        .foregroundColor(Color("dark green"))
+                        .foregroundColor(summary.weeklyChangePercent >= 0 ? Color("dark green") : Color("burgindy"))
                     Spacer()
-                    Text("محفظتك")
+                    Text(lang.t("summary.yourPortfolio"))
                         .font(.system(size: 13))
                         .foregroundColor(Color("brown").opacity(0.6))
                 }
                 HStack {
-                    Text(String(format: "+%.1f%%", summary.tasiChange))
+                    Text(Money.percent(summary.tasiChange))
                         .font(.system(size: 13, weight: .bold))
                         .foregroundColor(Color("brown"))
                     Spacer()
-                    Text("TASI (مؤشر كل الأسهم)")
+                    Text(lang.t("summary.tasiIndex"))
                         .font(.system(size: 13))
                         .foregroundColor(Color("brown").opacity(0.6))
                 }
                 HStack {
                     Spacer()
-                    Text(String(format: "تفوقت على السوق بـ +%.1f%%", summary.marketOutperform))
+                    Text(summary.marketOutperform >= 0
+                         ? String(format: lang.t("summary.outperformed"), "+", summary.marketOutperform)
+                         : String(format: lang.t("summary.underperformed"), abs(summary.marketOutperform)))
                         .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(Color("dark green"))
+                        .foregroundColor(summary.marketOutperform >= 0 ? Color("dark green") : Color("burgindy"))
                         .padding(.horizontal, 10).padding(.vertical, 5)
-                        .background(Color("dark green").opacity(0.12))
+                        .background((summary.marketOutperform >= 0 ? Color("dark green") : Color("burgindy")).opacity(0.12))
                         .clipShape(Capsule())
                 }
             }
@@ -274,48 +360,37 @@ private struct FullReport: View {
             .background(Color("white").opacity(0.6))
             .clipShape(RoundedRectangle(cornerRadius: 12))
 
-            // قطاعات
-            STitle("قطاعات تداول هذا الأسبوع")
-            VStack(spacing: 8) {
-                ForEach(summary.sectorPerformance) { sector in
-                    HStack(spacing: 10) {
-                        Text(String(format: "%@%.1f%%", sector.changePercent >= 0 ? "+" : "", sector.changePercent))
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(sector.isPositive ? Color("dark green") : Color("burgindy"))
-                            .frame(width: 52, alignment: .leading)
-                        GeometryReader { geo in
-                            RoundedRectangle(cornerRadius: 6)
-                                .fill(sector.isPositive ? Color("dark green").opacity(0.7) : Color("burgindy").opacity(0.7))
-                                .frame(width: geo.size.width * CGFloat(min(abs(sector.changePercent) / 5.0, 1.0)), height: 10)
+            // قطاعات من المحفظة الحقيقية
+            if !summary.sectorPerformance.isEmpty {
+                STitle(lang.t("summary.sectorPerf"))
+                VStack(spacing: 8) {
+                    ForEach(summary.sectorPerformance) { sector in
+                        HStack(spacing: 10) {
+                            Text(Money.percent(sector.changePercent))
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundColor(sector.isPositive ? Color("dark green") : Color("burgindy"))
+                                .frame(width: 52, alignment: .leading)
+                            GeometryReader { geo in
+                                RoundedRectangle(cornerRadius: 6)
+                                    .fill(sector.isPositive ? Color("dark green").opacity(0.7) : Color("burgindy").opacity(0.7))
+                                    .frame(width: geo.size.width * CGFloat(min(abs(sector.changePercent) / 5.0, 1.0)), height: 10)
+                            }
+                            .frame(height: 10)
+                            Text(lang.t("category.\(sector.name)"))
+                                .font(.system(size: 13))
+                                .foregroundColor(Color("brown").opacity(0.7))
+                                .frame(width: 90, alignment: .trailing)
                         }
-                        .frame(height: 10)
-                        Text(sector.name)
-                            .font(.system(size: 13))
-                            .foregroundColor(Color("brown").opacity(0.7))
-                            .frame(width: 90, alignment: .trailing)
                     }
                 }
-            }
-            .padding(12)
-            .background(Color("white").opacity(0.6))
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-
-            // ما حرّك السوق
-            STitle("ما الذي حرّك السوق")
-            InsightBlock(highlight: summary.marketDriver,
-                         bodyText: summary.marketDriverDetail,
-                         isAlert: false)
-            InsightBlock(highlight: "أرباح البنوك للربع الأول تجاوزت التوقعات",
-                         bodyText: "أعلن الراجحي عن نمو أرباح 7٪ سنويًا.",
-                         isAlert: false)
-
-            if let alert = summary.sectorAlert, let detail = summary.sectorAlertDetail {
-                InsightBlock(highlight: alert, bodyText: detail, isAlert: true)
+                .padding(12)
+                .background(Color("white").opacity(0.6))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
             }
 
             // نظرة للأمام
-            STitle("نظرة للأمام")
-            Text(summary.forwardLook)
+            STitle(lang.t("summary.forwardLook"))
+            Text(String(format: lang.t(summary.forwardLookKey), abs(summary.marketOutperform)))
                 .font(.system(size: 13))
                 .foregroundColor(Color("brown").opacity(0.75))
                 .multilineTextAlignment(.trailing)
@@ -323,26 +398,26 @@ private struct FullReport: View {
 
             Divider().padding(.vertical, 12)
 
-            STitle("أبرز المتحركين")
+            STitle(lang.t("summary.topMovers"))
             MoversList(portfolio: portfolio)
 
             HStack {
                 Spacer()
                 VStack(alignment: .trailing, spacing: 2) {
-                    Text("+54")
+                    Text("\(summary.bricksThisPeriod)")
                         .font(.system(size: 26, weight: .bold))
                         .foregroundColor(Color("light purple"))
-                    Text("الطابوق المكتسب هذا الأسبوع")
+                    Text(lang.t("summary.bricksSince"))
                         .font(.system(size: 11))
                         .foregroundColor(Color("brown").opacity(0.5))
-                    Text("من أرباحك")
+                    Text(lang.t("summary.fromRealized"))
                         .font(.system(size: 11))
                         .foregroundColor(Color("brown").opacity(0.5))
                 }
             }
             .padding(.top, 12)
 
-            NextFooter(label: summary.nextSummaryLabel)
+            NextFooter(date: summary.nextSummaryDate)
         }
         .padding(16)
         .background(Color("baige"))
@@ -354,25 +429,27 @@ private struct FullReport: View {
 
 private struct MoversList: View {
     let portfolio: [Stock]
+    @Environment(LanguageManager.self) private var lang
+    @Environment(AppStore.self) private var store
     var body: some View {
         VStack(spacing: 0) {
             ForEach(portfolio) { stock in
                 HStack(spacing: 14) {
                     StockAvatarView(symbol: stock.symbol)
                     VStack(alignment: .trailing, spacing: 4) {
-                        Text(stock.symbol.replacingOccurrences(of: ".SR", with: ""))
+                        Text(store.getReadableName(for: stock.symbol))
                             .font(.system(size: 15, weight: .semibold))
                             .foregroundColor(Color("brown"))
-                        Text(stock.category.rawValue)
+                        Text(stock.symbol.replacingOccurrences(of: ".SR", with: ""))
                             .font(.system(size: 12))
                             .foregroundColor(Color("brown").opacity(0.45))
                     }
                     Spacer()
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("\(Int(stock.price)) SAR")
+                        Text("\(Int(stock.price)) \(lang.t("unit.sar"))")
                             .font(.system(size: 14, weight: .bold))
                             .foregroundColor(Color("brown"))
-                        Text(String(format: "%@%.1f%%", stock.changePercent >= 0 ? "+" : "", stock.changePercent))
+                        Text(Money.percent(stock.changePercent))
                             .font(.system(size: 12, weight: .bold))
                             .foregroundColor(stock.changePercent >= 0 ? Color("dark green") : Color("burgindy"))
                     }
@@ -412,34 +489,15 @@ private struct CalcRow: View {
         }
     }
 }
-private struct InsightBlock: View {
-    let highlight: String
-    let bodyText: String
-    let isAlert: Bool
 
-    var body: some View {
-        VStack(alignment: .trailing, spacing: 6) {
-            Text(highlight)
-                .font(.system(size: 13, weight: .bold))
-                .foregroundColor(isAlert ? Color("burgindy") : Color("dark green"))
-                .frame(maxWidth: .infinity, alignment: .trailing)
-            Text(bodyText)
-                .font(.system(size: 13))
-                .foregroundColor(Color("brown").opacity(0.7))
-                .multilineTextAlignment(.trailing)
-        }
-        .padding(12)
-        .background(isAlert ? Color("burgindy").opacity(0.07) : Color("white").opacity(0.5))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .padding(.bottom, 6)
-    }
-}
 private struct NextFooter: View {
-    let label: String
+    let date: Date
+    @Environment(LanguageManager.self) private var lang
     var body: some View {
         HStack {
             Spacer()
-            Text("الملخص القادم: \(label)")
+            Text(String(format: lang.t("summary.nextLabel"),
+                        localizedDate(date, format: "EEEE d MMMM", lang: lang)))
                 .font(.system(size: 12, weight: .medium))
                 .foregroundColor(Color("brown").opacity(0.5))
         }
@@ -467,10 +525,11 @@ private struct SparklineView: View {
 }
 
 private struct LoadingCardView: View {
+    @Environment(LanguageManager.self) private var lang
     var body: some View {
         VStack(spacing: 12) {
             ProgressView()
-            Text("يتم تحليل محفظتك…")
+            Text(lang.t("summary.analyzing"))
                 .font(.system(size: 13))
                 .foregroundColor(Color("brown").opacity(0.5))
         }
@@ -482,12 +541,13 @@ private struct LoadingCardView: View {
 }
 
 private struct EmptyCard: View {
+    @Environment(LanguageManager.self) private var lang
     var body: some View {
         VStack(spacing: 12) {
             Image(systemName: "chart.bar.doc.horizontal")
                 .font(.system(size: 32))
                 .foregroundColor(Color("brown").opacity(0.3))
-            Text("أضف أسهمًا لتوليد الملخص")
+            Text(lang.t("summary.addStocks"))
                 .font(.system(size: 14))
                 .foregroundColor(Color("brown").opacity(0.5))
         }

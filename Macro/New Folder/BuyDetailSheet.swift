@@ -1,3 +1,11 @@
+//
+//  BuyDetailSheet.swift
+//  Macro
+//
+//  Created by Ghala Alsalem on 02/06/2026.
+//
+
+
 import SwiftUI
 import SwiftData
 
@@ -12,7 +20,7 @@ struct BuyDetailSheet: View {
     @State private var quantity: Int = 1
     @State private var priceText: String = ""
     @State private var purchaseDate: Date = Date()
-    @State private var didLoadPrice = false
+    @State private var priceFetchDone = false   // true once fetch finishes (success or fail)
     @State private var didAdd = false
 
     // Live price from the cache (fetched on appear).
@@ -43,12 +51,12 @@ struct BuyDetailSheet: View {
             }
         }
         .task {
-            // Fetch the live price for this symbol, then prefill the field.
+            // Fetch the live price; prefill the field if it arrives.
             await store.refreshLivePrices(for: [symbol])
             if let p = store.livePrice(for: symbol), priceText.isEmpty {
                 priceText = String(format: "%.2f", p)
             }
-            didLoadPrice = true
+            priceFetchDone = true
         }
     }
 
@@ -79,7 +87,7 @@ struct BuyDetailSheet: View {
                 Spacer()
                 Text(livePrice != nil
                      ? String(format: "%.2f %@", livePrice!, lang.t("unit.sar"))
-                     : lang.t("buy.loadingPrice"))
+                     : (priceFetchDone ? lang.t("buy.priceUnavailable") : lang.t("buy.loadingPrice")))
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundColor(Color("brown"))
             }
@@ -175,7 +183,7 @@ struct BuyDetailSheet: View {
             } label: {
                 Text(canConfirm
                      ? String(format: quantity > 1 ? lang.t("buy.confirm") : lang.t("buy.confirmOne"), quantity)
-                     : lang.t("buy.loadingPrice"))
+                     : lang.t("buy.enterPrice"))
                     .font(.system(size: 18, weight: .semibold))
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)

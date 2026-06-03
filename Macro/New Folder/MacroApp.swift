@@ -10,14 +10,18 @@ import SwiftData
 
 @main
 struct MacroApp: App {
+    // The ONE and only AppStore for the whole app.
     @State private var store = AppStore()
+    // App-wide language manager (Arabic by default, persisted).
+    @State private var lang = LanguageManager()
 
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .environment(store)
+                .environment(lang)
         }
-        // ✅ Persistent local device database container engine initialization
-        .modelContainer(for: TransactionItem.self)
+        // Persisted store: transactions + value snapshots.
+        .modelContainer(for: [Transaction.self, PortfolioSnapshot.self])
     }
 }

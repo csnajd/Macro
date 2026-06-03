@@ -1,3 +1,11 @@
+//
+//  HoldingDetailSheet.swift
+//  Macro
+//
+//  Created by Ghala Alsalem on 02/06/2026.
+//
+
+
 import SwiftUI
 import SwiftData
 
@@ -5,6 +13,7 @@ struct HoldingDetailSheet: View {
     let position: PortfolioMath.Position
 
     @Environment(AppStore.self) private var store
+    @Environment(LanguageManager.self) private var lang
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
 
@@ -72,14 +81,14 @@ struct HoldingDetailSheet: View {
 
             // Stat rows
             VStack(spacing: 14) {
-                statRow("Shares held", "\(position.quantity)")
-                statRow("Average buy price", String(format: "%.2f SAR", position.averageBuyPrice))
-                statRow("Current price",
-                        livePrice != nil ? String(format: "%.2f SAR", livePrice!) : "Loading…")
+                statRow(lang.t("sell.sharesHeld"), "\(position.quantity)")
+                statRow(lang.t("sell.avgBuyPrice"), String(format: "%.2f %@", position.averageBuyPrice, lang.t("unit.sar")))
+                statRow(lang.t("sell.currentPrice"),
+                        livePrice != nil ? String(format: "%.2f %@", livePrice!, lang.t("unit.sar")) : lang.t("sell.loading"))
                 Divider()
-                statRow("Current value", String(format: "%.0f SAR", currentValue))
-                statRow("Unrealized gain",
-                        String(format: "%@%.0f SAR", unrealizedGain >= 0 ? "+" : "", unrealizedGain),
+                statRow(lang.t("sell.currentValue"), String(format: "%.0f %@", currentValue, lang.t("unit.sar")))
+                statRow(lang.t("sell.unrealizedGain"),
+                        "\(Money.sar(unrealizedGain)) \(lang.t("unit.sar"))",
                         color: unrealizedGain >= 0 ? Color("dark green") : Color("burgindy"))
             }
             .padding(20)
@@ -90,7 +99,7 @@ struct HoldingDetailSheet: View {
 
             // Quantity selector
             VStack(alignment: .leading, spacing: 12) {
-                Text("How many shares to sell?")
+                Text(lang.t("sell.howMany"))
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundColor(Color("brown"))
 
@@ -110,7 +119,7 @@ struct HoldingDetailSheet: View {
                             .foregroundColor(sellQuantity < position.quantity ? Color("light brown") : Color("brown").opacity(0.2))
                     }
                     Spacer()
-                    Button("All") { sellQuantity = position.quantity }
+                    Button(lang.t("sell.all")) { sellQuantity = position.quantity }
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(Color("brown"))
                         .padding(.horizontal, 14).padding(.vertical, 8)
@@ -123,16 +132,16 @@ struct HoldingDetailSheet: View {
             // Live preview of the sale outcome
             VStack(spacing: 6) {
                 HStack {
-                    Text("Realized gain")
+                    Text(lang.t("sell.realizedGain"))
                         .font(.system(size: 14))
                         .foregroundColor(Color("brown").opacity(0.7))
                     Spacer()
-                    Text(String(format: "%@%.0f SAR", previewRealizedGain >= 0 ? "+" : "", previewRealizedGain))
+                    Text("\(Money.sar(previewRealizedGain)) \(lang.t("unit.sar"))")
                         .font(.system(size: 14, weight: .bold))
                         .foregroundColor(previewRealizedGain >= 0 ? Color("dark green") : Color("burgindy"))
                 }
                 HStack {
-                    Text("Bricks earned")
+                    Text(lang.t("sell.bricksEarned"))
                         .font(.system(size: 14))
                         .foregroundColor(Color("brown").opacity(0.7))
                     Spacer()
@@ -156,7 +165,7 @@ struct HoldingDetailSheet: View {
             Button {
                 performSell()
             } label: {
-                Text(livePrice == nil ? "Loading price…" : "Sell \(sellQuantity) \(sellQuantity > 1 ? "Shares" : "Share")")
+                Text(livePrice == nil ? lang.t("sell.loadingPrice") : String(format: sellQuantity > 1 ? lang.t("sell.sellShares") : lang.t("sell.sellShare"), sellQuantity))
                     .font(.system(size: 18, weight: .semibold))
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
@@ -182,10 +191,10 @@ struct HoldingDetailSheet: View {
                 Text("+\(earned)")
                     .font(.system(size: 44, weight: .bold))
                     .foregroundColor(Color("light brown"))
-                Text(earned == 1 ? "brick earned!" : "bricks earned!")
+                Text(earned == 1 ? lang.t("sell.brickEarnedTitle") : lang.t("sell.bricksEarnedTitle"))
                     .font(.system(size: 20, weight: .semibold))
                     .foregroundColor(Color("brown"))
-                Text("Locked in from your profit.\nThey're yours to keep.")
+                Text(lang.t("sell.rewardBody"))
                     .font(.system(size: 14))
                     .multilineTextAlignment(.center)
                     .foregroundColor(Color("brown").opacity(0.6))
@@ -193,10 +202,10 @@ struct HoldingDetailSheet: View {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.system(size: 72))
                     .foregroundColor(Color("dark green"))
-                Text("Sale complete")
+                Text(lang.t("sell.complete"))
                     .font(.system(size: 22, weight: .bold))
                     .foregroundColor(Color("brown"))
-                Text("No bricks this time — they're only earned on a profit.")
+                Text(lang.t("sell.noBricks"))
                     .font(.system(size: 14))
                     .multilineTextAlignment(.center)
                     .foregroundColor(Color("brown").opacity(0.6))
@@ -206,7 +215,7 @@ struct HoldingDetailSheet: View {
             Spacer()
 
             Button { dismiss() } label: {
-                Text("Done")
+                Text(lang.t("common.done"))
                     .font(.system(size: 18, weight: .semibold))
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)

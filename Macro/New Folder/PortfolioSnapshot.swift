@@ -1,3 +1,11 @@
+//
+//  PortfolioSnapshot.swift
+//  Macro
+//
+//  Created by Ghala Alsalem on 02/06/2026.
+//
+
+
 import Foundation
 import SwiftData
 
