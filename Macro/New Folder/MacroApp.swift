@@ -10,18 +10,17 @@ import SwiftData
 
 @main
 struct MacroApp: App {
-    // The ONE and only AppStore for the whole app.
-    @State private var store = AppStore()
-    // App-wide language manager (Arabic by default, persisted).
+    // ✅ Initialized as an AppStore subclass wrapper instance to satisfy ancestral lookups
+    @StateObject private var store = AppStore()
     @State private var lang = LanguageManager()
 
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .environment(store)
+                // ✅ Satisfies all subview lookups searching for either AppStore or GhinahAppStore
+                .environmentObject(store)
                 .environment(lang)
         }
-        // Persisted store: transactions + value snapshots.
         .modelContainer(for: [Transaction.self, PortfolioSnapshot.self])
     }
 }

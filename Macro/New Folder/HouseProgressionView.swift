@@ -2,11 +2,8 @@
 //  HouseProgressionView.swift
 //  Macro
 //
-//  Created by Ghida Abdullah al-Mughamer on 03/06/2026.
-//
 
 import SwiftUI
-import SwiftData
 
 struct NajdiBuildingStage: Identifiable {
     let id = UUID()
@@ -17,12 +14,11 @@ struct NajdiBuildingStage: Identifiable {
 }
 
 struct HouseProgressionView: View {
-    @Environment(GhinahAppStore.self) private var store
+    @EnvironmentObject private var store: GhinahAppStore // ✅ Perfect match!
     @Environment(\.dismiss) private var dismiss
     
     private let sarPerBrick: Double = 3.4
     
-    // Interactive View State Variables
     @State private var selectedLevelTab: Int = 1
     @State private var isPlacingBrickAnimation: Bool = false
     
@@ -51,10 +47,8 @@ struct HouseProgressionView: View {
         let totalBricksNeeded = next.bricksRequired - currentMilestone
         let bricksEarned = totalBricks - currentMilestone
         
-        // ✅ CRITICAL RUNTIME SAFEGUARD: Explicitly handle zero denominators to prevent division crashes
         guard totalBricksNeeded > 0 else { return 0.0 }
         
-        // Clamp metrics cleanly between 0.0 and 1.0 bounds
         let unclampedPercentage = CGFloat(bricksEarned) / CGFloat(totalBricksNeeded)
         return max(0.0, min(1.0, unclampedPercentage))
     }
@@ -65,7 +59,7 @@ struct HouseProgressionView: View {
                 .ignoresSafeArea()
             
             VStack(spacing: 0) {
-                // MARK: - Navigation Top Header
+                // MARK: - Header
                 HStack {
                     Button { dismiss() } label: {
                         HStack(spacing: 6) {
@@ -97,7 +91,7 @@ struct HouseProgressionView: View {
                 .padding(.horizontal, 24)
                 .padding(.top, 16)
                 
-                // MARK: - Sandbox Simulation Controller Slider
+                // MARK: - Simulation Controls
                 if store.isDevTestingActive {
                     let mockBrickBinding = Binding<Double>(
                         get: { store.injectedMockBricks },
@@ -122,13 +116,11 @@ struct HouseProgressionView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 16))
                     .padding(.horizontal, 24)
                     .padding(.top, 12)
-                    .transition(.move(edge: .top).combined(with: .opacity))
                 }
                 
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(spacing: 20) {
                         
-                        // MARK: - Live Construction Site Viewport Card
                         let selectedStageDetails = stages.first(where: { $0.level == selectedLevelTab }) ?? stages[0]
                         let isLevelFullyUnlocked = totalBricks >= selectedStageDetails.bricksRequired
                         let isLevelCurrentlyBuilding = currentActiveStage.level == selectedLevelTab && nextStageTarget != nil
@@ -138,14 +130,12 @@ struct HouseProgressionView: View {
                                 .fill(Color("white"))
                                 .shadow(color: Color("brown").opacity(0.06), radius: 16, x: 0, y: 8)
                             
-                            // Procedural building canvas layout segment
                             NajdiCanvasView(bricksEarned: totalBricks)
                                 .frame(height: 360)
                                 .clipShape(RoundedRectangle(cornerRadius: 28))
                                 .saturation(isLevelFullyUnlocked ? 1.0 : 0.2)
                                 .blur(radius: isLevelFullyUnlocked ? 0.0 : (isLevelCurrentlyBuilding ? 1.0 : 5.0))
                             
-                            // Blueprint drafting layout mask overlay
                             if !isLevelFullyUnlocked && !isLevelCurrentlyBuilding {
                                 ZStack {
                                     Color.black.opacity(0.35)
@@ -162,7 +152,6 @@ struct HouseProgressionView: View {
                                 .clipShape(RoundedRectangle(cornerRadius: 28))
                             }
                             
-                            // Interactive structural building overlay footer drawer
                             if isLevelCurrentlyBuilding {
                                 VStack {
                                     Spacer()
@@ -192,7 +181,6 @@ struct HouseProgressionView: View {
                                 .clipShape(RoundedRectangle(cornerRadius: 28))
                             }
                             
-                            // Active Phase Tags
                             HStack {
                                 Text("PHASE 0\(selectedLevelTab)")
                                     .font(.system(size: 11, weight: .black))
@@ -208,7 +196,7 @@ struct HouseProgressionView: View {
                         .frame(height: 360)
                         .padding(.top, 10)
                         
-                        // MARK: - Level Tab Selector Buttons
+                        // MARK: - Level Switch Tabs
                         HStack(spacing: 12) {
                             ForEach(stages) { stage in
                                 let isActiveSelection = selectedLevelTab == stage.level
@@ -230,7 +218,7 @@ struct HouseProgressionView: View {
                             }
                         }
                         
-                        // MARK: - Upgrade Progress XP Tracking Gauge
+                        // MARK: - Progress Metrics Card
                         VStack(spacing: 14) {
                             if let next = nextStageTarget {
                                 VStack(spacing: 8) {

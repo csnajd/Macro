@@ -25,7 +25,7 @@ struct NajdiCanvasView: View {
         ZStack(alignment: .bottom) {
             skyGradient.ignoresSafeArea()
             
-            // Atmospheric Environmental Sun
+            // Environmental Sun Vector
             Circle()
                 .fill(Color(red: 253/255, green: 241/255, blue: 203/255))
                 .frame(width: 120, height: 120)
@@ -48,9 +48,9 @@ struct NajdiCanvasView: View {
                 .fill(sandColor)
                 .frame(height: 70)
             
-            // MARK: - BUILDING LAYERS GENERATION SYSTEM
+            // MARK: - REAL-TIME PROCEDURAL BRICK BUILDER
             VStack(spacing: 4) {
-                // STAGE 3: Upper Central Gateway Frieze (Bricks >= 150)
+                // PHASE 3: Upper Central Gateway Palace Frieze (Bricks >= 150)
                 if bricksEarned >= 150 {
                     HStack(alignment: .bottom, spacing: 0) {
                         VStack(spacing: 2) {
@@ -71,7 +71,7 @@ struct NajdiCanvasView: View {
                     .transition(.move(edge: .top))
                 }
                 
-                // STAGE 2: Core Double Archways Base Walls (Bricks >= 50)
+                // PHASE 2: Core Traditional Double Archway Main Foundation Walls (Bricks >= 50)
                 if bricksEarned >= 50 {
                     HStack(spacing: 16) {
                         ZStack(alignment: .bottom) {
@@ -86,7 +86,7 @@ struct NajdiCanvasView: View {
                     .transition(.move(edge: .bottom))
                 }
                 
-                // STAGE 1: Ground Floor Real-Time Brick Accumulator Row
+                // PHASE 1: Real-Time Base Layer Brick Multiplier Block Accumulator Array
                 HStack(spacing: 3) {
                     let blockCount = max(4, min(12, bricksEarned / 4))
                     ForEach(0..<blockCount, id: \.self) { _ in
@@ -103,7 +103,7 @@ struct NajdiCanvasView: View {
     }
 }
 
-// MARK: - Core Structural Vector Drawing Path Shells
+// MARK: - Path Outlined Geometric Shapes
 struct PointedArchShape: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
