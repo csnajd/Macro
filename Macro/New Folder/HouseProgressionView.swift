@@ -14,52 +14,56 @@ struct NajdiBuildingStage: Identifiable {
 }
 
 struct HouseProgressionView: View {
-    @EnvironmentObject private var store: GhinahAppStore // ✅ Perfect match!
+    @Environment(AppStore.self) private var store
     @Environment(\.dismiss) private var dismiss
-    
+
     private let sarPerBrick: Double = 3.4
-    
+
     @State private var selectedLevelTab: Int = 1
     @State private var isPlacingBrickAnimation: Bool = false
-    
+
     private let stages = [
-        NajdiBuildingStage(level: 1, title: "Desert Groundwork", description: "Plotting structural lines and clearing core sands.", bricksRequired: 0),
-        NajdiBuildingStage(level: 2, title: "Lower Archways & Framing", description: "Raising core perimeter blocks and pointed archways.", bricksRequired: 50),
-        NajdiBuildingStage(level: 3, title: "Upper Facade & Frieze", description: "Sculpting triangular patterns and gateway towers.", bricksRequired: 150),
-        NajdiBuildingStage(level: 4, title: "Completed Heritage Estate", description: "Polished multi-tier structural palace complete.", bricksRequired: 350)
+        NajdiBuildingStage(level: 1, title: "Desert Groundwork",
+                           description: "Plotting structural lines and clearing core sands.",
+                           bricksRequired: 0),
+        NajdiBuildingStage(level: 2, title: "Lower Archways & Framing",
+                           description: "Raising core perimeter blocks and pointed archways.",
+                           bricksRequired: 50),
+        NajdiBuildingStage(level: 3, title: "Upper Facade & Frieze",
+                           description: "Sculpting triangular patterns and gateway towers.",
+                           bricksRequired: 150),
+        NajdiBuildingStage(level: 4, title: "Completed Heritage Estate",
+                           description: "Polished multi-tier structural palace complete.",
+                           bricksRequired: 350)
     ]
-    
-    private var totalBricks: Int {
-        store.dynamicallyEarnedBricks
-    }
-    
+
+    private var totalBricks: Int { store.brickCount }
+
     private var currentActiveStage: NajdiBuildingStage {
         stages.last(where: { totalBricks >= $0.bricksRequired }) ?? stages[0]
     }
-    
+
     private var nextStageTarget: NajdiBuildingStage? {
         stages.first(where: { $0.bricksRequired > totalBricks })
     }
-    
+
     private var levelProgressPercentage: CGFloat {
         guard let next = nextStageTarget else { return 1.0 }
         let currentMilestone = currentActiveStage.bricksRequired
-        let totalBricksNeeded = next.bricksRequired - currentMilestone
-        let bricksEarned = totalBricks - currentMilestone
-        
-        guard totalBricksNeeded > 0 else { return 0.0 }
-        
-        let unclampedPercentage = CGFloat(bricksEarned) / CGFloat(totalBricksNeeded)
-        return max(0.0, min(1.0, unclampedPercentage))
+        let totalNeeded = next.bricksRequired - currentMilestone
+        guard totalNeeded > 0 else { return 0.0 }
+        let earned = totalBricks - currentMilestone
+        return max(0.0, min(1.0, CGFloat(earned) / CGFloat(totalNeeded)))
     }
 
     var body: some View {
         ZStack {
             Color(red: 245/255, green: 242/255, blue: 235/255)
                 .ignoresSafeArea()
-            
+
             VStack(spacing: 0) {
-                // MARK: - Header
+
+                // Header
                 HStack {
                     Button { dismiss() } label: {
                         HStack(spacing: 6) {
@@ -70,19 +74,9 @@ struct HouseProgressionView: View {
                         .foregroundColor(Color("brown"))
                     }
                     Spacer()
-                    
                     Text("Estate Build Lab")
                         .font(.system(size: 17, weight: .bold))
-                        .foregroundColor(store.isDevTestingActive ? Color("dark green") : Color("brown"))
-                        .onTapGesture(count: 3) {
-                            withAnimation(.spring()) {
-                                store.isDevTestingActive.toggle()
-                                if store.isDevTestingActive {
-                                    store.injectedMockBricks = Double(store.dynamicallyEarnedBricks)
-                                }
-                            }
-                        }
-                    
+                        .foregroundColor(Color("brown"))
                     Spacer()
                     Text("🧱 \(totalBricks)")
                         .font(.system(size: 14, weight: .bold))
@@ -90,53 +84,26 @@ struct HouseProgressionView: View {
                 }
                 .padding(.horizontal, 24)
                 .padding(.top, 16)
-                
-                // MARK: - Simulation Controls
-                if store.isDevTestingActive {
-                    let mockBrickBinding = Binding<Double>(
-                        get: { store.injectedMockBricks },
-                        set: { store.injectedMockBricks = $0 }
-                    )
-                    
-                    VStack(spacing: 8) {
-                        HStack {
-                            Text("🛠️ Global Logic Injector")
-                                .font(.system(size: 11, weight: .bold))
-                                .foregroundColor(Color("dark green"))
-                            Spacer()
-                            Text("Injecting: \(Int(store.injectedMockBricks)) Bricks (≈ \(String(format: "%.1f", store.netPortfolioGains)) SAR)")
-                                .font(.system(size: 11, weight: .bold))
-                                .foregroundColor(Color("brown"))
-                        }
-                        Slider(value: mockBrickBinding, in: 0...400, step: 1)
-                            .tint(Color("dark green"))
-                    }
-                    .padding(14)
-                    .background(Color("white"))
-                    .clipShape(RoundedRectangle(cornerRadius: 16))
-                    .padding(.horizontal, 24)
-                    .padding(.top, 12)
-                }
-                
+
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(spacing: 20) {
-                        
+
                         let selectedStageDetails = stages.first(where: { $0.level == selectedLevelTab }) ?? stages[0]
-                        let isLevelFullyUnlocked = totalBricks >= selectedStageDetails.bricksRequired
-                        let isLevelCurrentlyBuilding = currentActiveStage.level == selectedLevelTab && nextStageTarget != nil
-                        
+                        let isLevelUnlocked = totalBricks >= selectedStageDetails.bricksRequired
+                        let isCurrentlyBuilding = currentActiveStage.level == selectedLevelTab && nextStageTarget != nil
+
                         ZStack(alignment: .topLeading) {
                             RoundedRectangle(cornerRadius: 28)
                                 .fill(Color("white"))
                                 .shadow(color: Color("brown").opacity(0.06), radius: 16, x: 0, y: 8)
-                            
+
                             NajdiCanvasView(bricksEarned: totalBricks)
                                 .frame(height: 360)
                                 .clipShape(RoundedRectangle(cornerRadius: 28))
-                                .saturation(isLevelFullyUnlocked ? 1.0 : 0.2)
-                                .blur(radius: isLevelFullyUnlocked ? 0.0 : (isLevelCurrentlyBuilding ? 1.0 : 5.0))
-                            
-                            if !isLevelFullyUnlocked && !isLevelCurrentlyBuilding {
+                                .saturation(isLevelUnlocked ? 1.0 : 0.2)
+                                .blur(radius: isLevelUnlocked ? 0.0 : (isCurrentlyBuilding ? 1.0 : 5.0))
+
+                            if !isLevelUnlocked && !isCurrentlyBuilding {
                                 ZStack {
                                     Color.black.opacity(0.35)
                                     VStack(spacing: 6) {
@@ -151,8 +118,8 @@ struct HouseProgressionView: View {
                                 }
                                 .clipShape(RoundedRectangle(cornerRadius: 28))
                             }
-                            
-                            if isLevelCurrentlyBuilding {
+
+                            if isCurrentlyBuilding {
                                 VStack {
                                     Spacer()
                                     HStack {
@@ -172,7 +139,8 @@ struct HouseProgressionView: View {
                                             .font(.system(size: 24))
                                             .foregroundColor(.white)
                                             .rotationEffect(.degrees(isPlacingBrickAnimation ? -20 : 20))
-                                            .animation(.easeInOut(duration: 0.5).repeatForever(autoreverses: true), value: isPlacingBrickAnimation)
+                                            .animation(.easeInOut(duration: 0.5).repeatForever(autoreverses: true),
+                                                       value: isPlacingBrickAnimation)
                                             .onAppear { isPlacingBrickAnimation = true }
                                     }
                                     .padding(20)
@@ -180,14 +148,16 @@ struct HouseProgressionView: View {
                                 }
                                 .clipShape(RoundedRectangle(cornerRadius: 28))
                             }
-                            
+
                             HStack {
                                 Text("PHASE 0\(selectedLevelTab)")
                                     .font(.system(size: 11, weight: .black))
                                     .foregroundColor(.white)
                                     .padding(.horizontal, 14)
                                     .padding(.vertical, 6)
-                                    .background(isLevelFullyUnlocked ? Color("dark green") : (isLevelCurrentlyBuilding ? Color("light brown") : Color.gray))
+                                    .background(isLevelUnlocked
+                                                ? Color("dark green")
+                                                : (isCurrentlyBuilding ? Color("light brown") : Color.gray))
                                     .clipShape(Capsule())
                                 Spacer()
                             }
@@ -195,13 +165,12 @@ struct HouseProgressionView: View {
                         }
                         .frame(height: 360)
                         .padding(.top, 10)
-                        
-                        // MARK: - Level Switch Tabs
+
+                        // Level tabs
                         HStack(spacing: 12) {
                             ForEach(stages) { stage in
-                                let isActiveSelection = selectedLevelTab == stage.level
+                                let isActive = selectedLevelTab == stage.level
                                 let isUnlocked = totalBricks >= stage.bricksRequired
-                                
                                 Button { selectedLevelTab = stage.level } label: {
                                     VStack(spacing: 4) {
                                         Text("Lvl \(stage.level)")
@@ -211,14 +180,14 @@ struct HouseProgressionView: View {
                                     }
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 10)
-                                    .background(isActiveSelection ? Color("brown") : Color("white"))
-                                    .foregroundColor(isActiveSelection ? .white : (isUnlocked ? Color("brown") : .gray.opacity(0.5)))
+                                    .background(isActive ? Color("brown") : Color("white"))
+                                    .foregroundColor(isActive ? .white : (isUnlocked ? Color("brown") : .gray.opacity(0.5)))
                                     .clipShape(RoundedRectangle(cornerRadius: 14))
                                 }
                             }
                         }
-                        
-                        // MARK: - Progress Metrics Card
+
+                        // Progress card
                         VStack(spacing: 14) {
                             if let next = nextStageTarget {
                                 VStack(spacing: 8) {
@@ -233,18 +202,21 @@ struct HouseProgressionView: View {
                                     }
                                     GeometryReader { geo in
                                         ZStack(alignment: .leading) {
-                                            RoundedRectangle(cornerRadius: 100).fill(Color("dark baige").opacity(0.2))
                                             RoundedRectangle(cornerRadius: 100)
-                                                .fill(LinearGradient(colors: [Color("light brown"), Color("brown")], startPoint: .leading, endPoint: .trailing))
+                                                .fill(Color("dark baige").opacity(0.2))
+                                            RoundedRectangle(cornerRadius: 100)
+                                                .fill(LinearGradient(
+                                                    colors: [Color("light brown"), Color("brown")],
+                                                    startPoint: .leading, endPoint: .trailing))
                                                 .frame(width: geo.size.width * levelProgressPercentage)
                                         }
                                     }
                                     .frame(height: 12)
                                 }
-                                
+
                                 let blocksRemaining = next.bricksRequired - totalBricks
                                 let capitalRequired = Double(blocksRemaining) * sarPerBrick
-                                Text(store.isDevTestingActive ? "Sandbox override actively controlling layout logic components." : "Earn +\(String(format: "%.2f", capitalRequired)) SAR more in profits to automatically generate the next \(blocksRemaining) bricks.")
+                                Text("Earn +\(String(format: "%.2f", capitalRequired)) SAR more in profits to generate the next \(blocksRemaining) bricks.")
                                     .font(.system(size: 11, weight: .medium))
                                     .foregroundColor(.gray)
                                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -257,8 +229,8 @@ struct HouseProgressionView: View {
                         .padding(20)
                         .background(Color("white"))
                         .clipShape(RoundedRectangle(cornerRadius: 22))
-                        
-                        // MARK: - Phase Description Metadata Card
+
+                        // Stage description
                         VStack(alignment: .leading, spacing: 6) {
                             Text(selectedStageDetails.title.uppercased())
                                 .font(.system(size: 11, weight: .black))
