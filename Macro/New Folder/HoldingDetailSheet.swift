@@ -127,40 +127,11 @@ struct HoldingDetailSheet: View {
                             .clipShape(RoundedRectangle(cornerRadius: 14))
                     }
                 }
-<<<<<<< HEAD
-            }
-            .padding(16)
-            .background(Color("white").opacity(0.5))
-            .clipShape(RoundedRectangle(cornerRadius: 14))
-            .padding(.horizontal, 24)
-            .padding(.top, 16)
-
-            Spacer()
-
-            // Sell button (disabled until live price is available)
-            Button {
-                performSell()
-            } label: {
-                Text(livePrice == nil ? lang.t("sell.loadingPrice") : String(format: lang.t("sell.sellShares"), lang.shares(sellQuantity)))
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 18)
-                    .background(livePrice == nil ? Color("brown").opacity(0.3) : Color("light brown"))
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-            }
-            .disabled(livePrice == nil)
-            .padding(.horizontal, 24)
-            .padding(.bottom, 32)
-        }
-    }
-=======
                 .padding(20)
                 .background(Color("white"))
                 .clipShape(RoundedRectangle(cornerRadius: 22))
                 .padding(.horizontal, 24)
                 .padding(.top, 16)
->>>>>>> main
 
                 Spacer()
             }

@@ -37,7 +37,7 @@ struct HouseProgressionView: View {
                            bricksRequired: 350)
     ]
 
-    private var totalBricks: Int { store.brickCount }
+    private var totalBricks: Int { store.dynamicallyEarnedBricks }
 
     private var currentActiveStage: NajdiBuildingStage {
         stages.last(where: { totalBricks >= $0.bricksRequired }) ?? stages[0]
@@ -187,25 +187,6 @@ struct HouseProgressionView: View {
                             }
                         }
 
-<<<<<<< HEAD
-                                    // Content Card Description Layouts
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text(lang.t(stage.nameKey))
-                                            .font(.system(size: 15, weight: .bold))
-                                            .foregroundColor(isUnlocked ? Color("brown") : .gray.opacity(0.7))
-
-                                        Text(lang.t(stage.descriptionKey))
-                                            .font(.system(size: 12))
-                                            .foregroundColor(.gray.opacity(0.8))
-                                            .lineLimit(2)
-                                            .fixedSize(horizontal: false, vertical: true)
-
-                                        if !isUnlocked {
-                                            Text(String(format: lang.t("house.requiresBricks"), lang.bricks(stage.requiredBricks)))
-                                                .font(.system(size: 11, weight: .semibold))
-                                                .foregroundColor(Color("burgindy").opacity(0.8))
-                                                .padding(.top, 2)
-=======
                         // Progress card
                         VStack(spacing: 14) {
                             if let next = nextStageTarget {
@@ -228,7 +209,6 @@ struct HouseProgressionView: View {
                                                     colors: [Color("light brown"), Color("brown")],
                                                     startPoint: .leading, endPoint: .trailing))
                                                 .frame(width: geo.size.width * levelProgressPercentage)
->>>>>>> main
                                         }
                                     }
                                     .frame(height: 12)
