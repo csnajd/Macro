@@ -165,7 +165,7 @@ struct HoldingDetailSheet: View {
             Button {
                 performSell()
             } label: {
-                Text(livePrice == nil ? lang.t("sell.loadingPrice") : String(format: sellQuantity > 1 ? lang.t("sell.sellShares") : lang.t("sell.sellShare"), sellQuantity))
+                Text(livePrice == nil ? lang.t("sell.loadingPrice") : String(format: lang.t("sell.sellShares"), lang.shares(sellQuantity)))
                     .font(.system(size: 18, weight: .semibold))
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)

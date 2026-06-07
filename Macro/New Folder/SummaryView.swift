@@ -28,6 +28,8 @@ struct SummaryView: View {
     @Query private var snapshots: [PortfolioSnapshot]
     @State private var aiService = AISummaryService()
     @State private var expansion: SummaryExpansion = .collapsed
+    // The user's chosen summary cadence (persisted in UserDefaults).
+    @State private var frequency: SummaryFrequency = SummaryFrequency.current
 
     private var positions: [PortfolioMath.Position] {
         PortfolioMath.allPositions(from: transactions)
@@ -60,7 +62,13 @@ struct SummaryView: View {
     private func regenerate() async {
         await store.refreshLivePrices(for: positions.map { $0.symbol })
         recordSnapshotIfNeeded()
-        let baseline = SnapshotMath.baseline(snapshots)
+        // Compare against the snapshot at (or just before) the start of the
+        // chosen period — daily compares to this morning, weekly to 7 days
+        // ago, and so on. Falls back to the earliest snapshot if the app
+        // hasn't been used long enough to cover the full period yet.
+        let start = frequency.periodStart()
+        let sorted = snapshots.sorted { $0.date < $1.date }
+        let baseline = sorted.last(where: { $0.date <= start }) ?? sorted.first
         await aiService.generateSummary(
             positions: positions,
             livePrices: livePriceMap,
@@ -68,7 +76,8 @@ struct SummaryView: View {
             bricksEarned: store.brickCount,
             baselineValue: baseline?.totalValue,
             baselineBricks: baseline?.brickCount ?? 0,
-            startDate: baseline?.date
+            startDate: baseline?.date,
+            frequency: frequency
         )
     }
 
@@ -91,6 +100,43 @@ struct SummaryView: View {
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundColor(Color("brown"))
                     Spacer()
+                    // Frequency picker: daily / weekly / biweekly / monthly.
+                    // Changing it re-schedules the notification and recomputes
+                    // the summary over the new window.
+                    Menu {
+                        ForEach(SummaryFrequency.allCases, id: \.self) { freq in
+                            Button {
+                                frequency = freq
+                                SummaryFrequency.current = freq
+                                SummaryNotificationScheduler.schedule(
+                                    frequency: freq,
+                                    title: lang.t("notif.title"),
+                                    body: lang.t("notif.body")
+                                )
+                                Task { await regenerate() }
+                            } label: {
+                                if freq == frequency {
+                                    Label(lang.t(freq.nameKey), systemImage: "checkmark")
+                                } else {
+                                    Text(lang.t(freq.nameKey))
+                                }
+                            }
+                        }
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "bell.badge")
+                                .font(.system(size: 12, weight: .semibold))
+                            Text(lang.t(frequency.nameKey))
+                                .font(.system(size: 13, weight: .semibold))
+                            Image(systemName: "chevron.down")
+                                .font(.system(size: 10, weight: .bold))
+                        }
+                        .foregroundColor(Color("brown"))
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 7)
+                        .background(Color("baige"))
+                        .clipShape(Capsule())
+                    }
                 }
                 .padding(.horizontal, 24)
                 .padding(.top, 20)
@@ -122,6 +168,13 @@ struct SummaryView: View {
         .background(Color("white").ignoresSafeArea())
         .task(id: positions.map { $0.symbol }.sorted().joined(separator: ",")) {
             await regenerate()
+            // Make sure a notification is scheduled for the current cadence
+            // even if the user never opens the picker.
+            SummaryNotificationScheduler.schedule(
+                frequency: frequency,
+                title: lang.t("notif.title"),
+                body: lang.t("notif.body")
+            )
         }
     }
 }
@@ -309,10 +362,11 @@ private struct FullReport: View {
                 }
             }
 
-            // Detailed summary sentence: % since started, positions positive,
-            // best mover's contribution. All real, from holdings + baseline.
+            // Detailed summary sentence: % change over the chosen period,
+            // positions positive, best mover's contribution. All real.
             Text(String(format: lang.t(summary.sinceStartChange >= 0 ? "summary.sentencePositive" : "summary.sentenceNegative"),
                         abs(summary.sinceStartPercent),
+                        lang.t(SummaryFrequency.current.phraseKey),
                         summary.positionsPositive,
                         summary.positionsTotal,
                         summary.bestStockName,
@@ -407,7 +461,7 @@ private struct FullReport: View {
                     Text("\(summary.bricksThisPeriod)")
                         .font(.system(size: 26, weight: .bold))
                         .foregroundColor(Color("light purple"))
-                    Text(lang.t("summary.bricksSince"))
+                    Text(String(format: lang.t("summary.bricksPeriod"), lang.t(SummaryFrequency.current.phraseKey)))
                         .font(.system(size: 11))
                         .foregroundColor(Color("brown").opacity(0.5))
                     Text(lang.t("summary.fromRealized"))
@@ -494,12 +548,19 @@ private struct NextFooter: View {
     let date: Date
     @Environment(LanguageManager.self) private var lang
     var body: some View {
-        HStack {
-            Spacer()
-            Text(String(format: lang.t("summary.nextLabel"),
-                        localizedDate(date, format: "EEEE d MMMM", lang: lang)))
-                .font(.system(size: 12, weight: .medium))
-                .foregroundColor(Color("brown").opacity(0.5))
+        VStack(spacing: 6) {
+            HStack {
+                Spacer()
+                Text(String(format: lang.t("summary.nextLabel"),
+                            localizedDate(date, format: "EEEE d MMMM", lang: lang)))
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(Color("brown").opacity(0.5))
+            }
+            // PDPL/CMA hygiene: summaries are descriptive, never advisory.
+            Text(lang.t("legal.notAdvice"))
+                .font(.system(size: 11))
+                .foregroundColor(Color("brown").opacity(0.45))
+                .frame(maxWidth: .infinity, alignment: .center)
         }
         .padding(.top, 12).padding(.bottom, 4)
     }

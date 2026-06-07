@@ -2,6 +2,8 @@
 //  AISummaryService.swift
 //  Macro
 //
+
+
 import Foundation
 import CoreML
 import Observation
@@ -113,15 +115,18 @@ final class AISummaryService {
     // MARK: - Generate summary from REAL holdings
     // `positions` = current holdings (from PortfolioMath).
     // `livePrices` = symbol → live price (from the store's cache).
-    // `baselineValue`/`baselineBricks`/`startDate` = first snapshot, for
-    //   "since you started" figures (nil/0 if no snapshot yet).
+    // `baselineValue`/`baselineBricks`/`startDate` = the snapshot at the start
+    //   of the chosen summary period (nil/0 if no snapshot yet).
+    // `frequency` = the user's chosen summary cadence; drives the next-summary
+    //   date and the period the figures describe.
     func generateSummary(positions: [PortfolioMath.Position],
                          livePrices: [String: Double],
                          realizedThisPeriod: Double,
                          bricksEarned: Int,
                          baselineValue: Double?,
                          baselineBricks: Int,
-                         startDate: Date?) async {
+                         startDate: Date?,
+                         frequency: SummaryFrequency) async {
         guard !positions.isEmpty else {
             summary = nil
             return
@@ -237,7 +242,7 @@ final class AISummaryService {
             marketOutperform:    portfolioPct - tasiChange,
             sectorPerformance:   sectors,
             forwardLookKey:      forwardKey,
-            nextSummaryDate:     Calendar.current.date(byAdding: .day, value: 7, to: Date()) ?? Date(),
+            nextSummaryDate:     frequency.nextDate(),
             weekClassificationKey: weekClassKey,
             bricksThisPeriod:    bricksSinceStart,
             bestStockName:       bestStockName,

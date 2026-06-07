@@ -182,7 +182,7 @@ struct BuyDetailSheet: View {
                 performBuy()
             } label: {
                 Text(canConfirm
-                     ? String(format: quantity > 1 ? lang.t("buy.confirm") : lang.t("buy.confirmOne"), quantity)
+                     ? String(format: lang.t("buy.confirm"), lang.shares(quantity))
                      : lang.t("buy.enterPrice"))
                     .font(.system(size: 18, weight: .semibold))
                     .foregroundColor(.white)
@@ -208,7 +208,7 @@ struct BuyDetailSheet: View {
                 .font(.system(size: 22, weight: .bold))
                 .foregroundColor(Color("brown"))
             Text(String(format: lang.t("buy.addedBody"),
-                        quantity, store.getReadableName(for: symbol),
+                        lang.shares(quantity), store.getReadableName(for: symbol),
                         effectivePrice, lang.t("unit.sar")))
                 .font(.system(size: 14))
                 .multilineTextAlignment(.center)

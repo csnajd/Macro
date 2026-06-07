@@ -53,6 +53,36 @@ final class LanguageManager {
         return table[key] ?? key
     }
 
+    // MARK: - Grammatically-correct count phrases
+    // Arabic noun forms change with the number (1 / 2 / 3–10 / 11+), so counts
+    // can't live in static strings. These return the full correct phrase.
+
+    /// "طابوقة واحدة" / "طابوقتين" / "5 طابوقات" / "15 طابوقة" — or "5 bricks".
+    func bricks(_ n: Int) -> String {
+        if current == .arabic {
+            switch n {
+            case 1:      return "طابوقة واحدة"
+            case 2:      return "طابوقتين"
+            case 3...10: return "\(n) طابوقات"
+            default:     return "\(n) طابوقة"
+            }
+        }
+        return n == 1 ? "1 brick" : "\(n) bricks"
+    }
+
+    /// "سهم واحد" / "سهمين" / "5 أسهم" / "15 سهمًا" — or "5 shares".
+    func shares(_ n: Int) -> String {
+        if current == .arabic {
+            switch n {
+            case 1:      return "سهم واحد"
+            case 2:      return "سهمين"
+            case 3...10: return "\(n) أسهم"
+            default:     return "\(n) سهمًا"
+            }
+        }
+        return n == 1 ? "1 share" : "\(n) shares"
+    }
+
     // MARK: - English Table
     static let en: [String: String] = [
         // Welcome
@@ -72,8 +102,7 @@ final class LanguageManager {
         "upgrade.nextIn": "Next upgrade in",
         "upgrade.complete": "Estate complete",
         "upgrade.builtFull": "Your estate is fully built",
-        "upgrade.bricksToNext": "%d bricks to next upgrade",   // %d = remaining
-        "upgrade.brickToNext": "%d brick to next upgrade",
+        "upgrade.bricksToNext": "%@ remaining",
         // Portfolio list
         "portfolio.title": "Portfolio",
         "portfolio.searchPlaceholder": "Search global or Tadawul stocks...",
@@ -89,13 +118,12 @@ final class LanguageManager {
         "buy.pricePerShare": "Price per share",
         "buy.date": "Purchase date",
         "buy.totalCost": "Total cost",
-        "buy.confirm": "Add %d Shares",
-        "buy.confirmOne": "Add %d Share",
+        "buy.confirm": "Add %@",
         "buy.loadingPrice": "Loading price…",
         "buy.priceUnavailable": "Price unavailable — enter manually",
         "buy.enterPrice": "Enter a price to continue",
         "buy.added": "Added to portfolio",
-        "buy.addedBody": "%d shares of %@ at %.2f %@ each.",
+        "buy.addedBody": "Added %@ of %@ at %.2f %@ each.",
         "remove.swipe": "Remove",
         "remove.confirmTitle": "Remove this holding?",
         "remove.confirmBody": "This deletes all buy and sell records for this stock. This can't be undone.",
@@ -125,8 +153,7 @@ final class LanguageManager {
         "sell.realizedGain": "Realized gain",
         "sell.bricksEarned": "Bricks earned",
         "sell.loadingPrice": "Loading price…",
-        "sell.sellShares": "Sell %d Shares",   // %d = quantity
-        "sell.sellShare": "Sell %d Share",
+        "sell.sellShares": "Sell %@",
         "sell.brickEarnedTitle": "brick earned!",
         "sell.bricksEarnedTitle": "bricks earned!",
         "sell.rewardBody": "Locked in from your profit.\nThey're yours to keep.",
@@ -139,7 +166,7 @@ final class LanguageManager {
         "house.pipeline": "CONSTRUCTION PIPELINE",
         "house.stagePrefix": "Stage",        // "Stage 2: ..."
         "house.lifetimeScore": "Lifetime Brick Score: %d",
-        "house.requiresBricks": "Requires %d Bricks",
+        "house.requiresBricks": "Requires %@",
         // Stage names
         "stage.1.name": "Foundation Laying",
         "stage.2.name": "Structural Framing",
@@ -184,17 +211,41 @@ final class LanguageManager {
         "week.negative": "A negative week",
         "week.tough": "A tough week",
         // Forward-look text
-        "summary.forwardAhead": "Your portfolio is ahead of the market by %.1f%%. Keep it up.",
-        "summary.forwardBehind": "Your portfolio is under pressure this week. Watch your positions closely.",
+        "summary.forwardAhead": "Your portfolio is ahead of the market by %.1f%% this period.",
+        "summary.forwardBehind": "Your portfolio is behind the market this period.",
         // Week label prefix
         "summary.weekPrefix": "Portfolio – week of %@",
-        // Since-started content
+        // Since-started / period content
         "summary.explainTitle": "How this is calculated",
-        "summary.explainBody": "Your portfolio value is the sum of your current holdings at today's market prices. The figure shown is the change since you started tracking.",
+        "summary.explainBody": "Your portfolio value is the sum of your current holdings at today's market prices. The figure shown is the change over your selected summary period.",
         "summary.sinceStarted": "since you started",
-        "summary.sentencePositive": "Portfolio up %.1f%% since you started. %d of %d positions are positive. %@ contributed %@ %@.",
-        "summary.sentenceNegative": "Portfolio down %.1f%% since you started. %d of %d positions are positive. %@ contributed %@ %@.",
-        "summary.bricksSince": "Bricks earned since you started"
+        "summary.sentencePositive": "Portfolio up %.1f%% %@. %d of %d positions are positive. %@ contributed %@ %@.",
+        "summary.sentenceNegative": "Portfolio down %.1f%% %@. %d of %d positions are positive. %@ contributed %@ %@.",
+        "summary.bricksSince": "Bricks earned since you started",
+        "summary.bricksPeriod": "Bricks earned %@",
+        // Summary frequency
+        "freq.daily": "Daily",
+        "freq.weekly": "Weekly",
+        "freq.biweekly": "Biweekly",
+        "freq.monthly": "Monthly",
+        "period.daily": "today",
+        "period.weekly": "this week",
+        "period.biweekly": "over the last two weeks",
+        "period.monthly": "this month",
+        "notif.title": "Your summary is ready!",
+        "notif.body": "See how your portfolio did and how many bricks you earned.",
+        // Sign-in gate
+        "signin.requiredTitle": "Sign in to add stocks",
+        "signin.requiredBody": "Browsing is open to everyone, but adding stocks to your portfolio needs an account so your progress and bricks are saved to you.",
+        "signin.notNow": "Not now",
+        "signin.failed": "Sign in didn't complete. This app's Apple sign-in isn't active yet — please try again later.",
+        // Privacy & consent
+        "consent.title": "Before you start",
+        "consent.body": "• Your portfolio data is stored only on your device — we have no servers and never receive it.\n• Sign in with Apple saves an anonymous identifier on your device only.\n• Stock prices are fetched from a third-party market data service, directly from your device.\n• Notifications are optional and processed on your device.",
+        "consent.readPolicy": "Read the full Privacy Policy",
+        "consent.agree": "Agree & Continue",
+        "privacy.title": "Privacy Policy",
+        "legal.notAdvice": "For tracking and education only — not investment advice."
     ]
 
     // MARK: - Arabic Table
@@ -216,8 +267,7 @@ final class LanguageManager {
         "upgrade.nextIn": "الترقية القادمة",
         "upgrade.complete": "اكتمل المنزل",
         "upgrade.builtFull": "تم بناء منزلك بالكامل",
-        "upgrade.bricksToNext": "%d طابوقة للترقية القادمة",
-        "upgrade.brickToNext": "طابوقة واحدة للترقية القادمة",
+        "upgrade.bricksToNext": "تبقّى %@",
         // Portfolio list
         "portfolio.title": "المحفظة",
         "portfolio.searchPlaceholder": "ابحث عن أسهم سعودية أو عالمية...",
@@ -233,13 +283,12 @@ final class LanguageManager {
         "buy.pricePerShare": "سعر السهم",
         "buy.date": "تاريخ الشراء",
         "buy.totalCost": "التكلفة الإجمالية",
-        "buy.confirm": "إضافة %d أسهم",
-        "buy.confirmOne": "إضافة %d سهم",
+        "buy.confirm": "إضافة %@",
         "buy.loadingPrice": "جارٍ تحميل السعر…",
         "buy.priceUnavailable": "السعر غير متاح — أدخله يدويًا",
         "buy.enterPrice": "أدخل سعرًا للمتابعة",
         "buy.added": "تمت الإضافة إلى المحفظة",
-        "buy.addedBody": "%d سهم من %@ بسعر %.2f %@ للسهم.",
+        "buy.addedBody": "تمت إضافة %@ من %@ بسعر %.2f %@ للسهم.",
         "remove.swipe": "حذف",
         "remove.confirmTitle": "حذف هذا المركز؟",
         "remove.confirmBody": "سيؤدي هذا إلى حذف جميع سجلات الشراء والبيع لهذا السهم. لا يمكن التراجع.",
@@ -269,8 +318,7 @@ final class LanguageManager {
         "sell.realizedGain": "الربح المحقق",
         "sell.bricksEarned": "الطابوق المكتسب",
         "sell.loadingPrice": "جارٍ تحميل السعر…",
-        "sell.sellShares": "بيع %d أسهم",
-        "sell.sellShare": "بيع %d سهم",
+        "sell.sellShares": "بيع %@",
         "sell.brickEarnedTitle": "طابوقة مكتسبة!",
         "sell.bricksEarnedTitle": "طابوق مكتسب!",
         "sell.rewardBody": "محقق من أرباحك.\nأصبح ملكًا لك.",
@@ -283,7 +331,7 @@ final class LanguageManager {
         "house.pipeline": "مراحل البناء",
         "house.stagePrefix": "المرحلة",
         "house.lifetimeScore": "إجمالي رصيد الطابوق: %d",
-        "house.requiresBricks": "يتطلب %d طابوقة",
+        "house.requiresBricks": "يتطلب %@",
         // Stage names
         "stage.1.name": "تأسيس الأساس",
         "stage.2.name": "الهيكل الإنشائي",
@@ -328,16 +376,40 @@ final class LanguageManager {
         "week.negative": "أسبوع سلبي",
         "week.tough": "أسبوع صعب",
         // Forward-look text
-        "summary.forwardAhead": "محفظتك متقدمة على السوق بنسبة %.1f٪. واصل المتابعة.",
-        "summary.forwardBehind": "محفظتك تحت ضغط هذا الأسبوع. راقب مراكزك عن كثب.",
+        "summary.forwardAhead": "محفظتك متقدمة على السوق بنسبة %.1f٪ في هذه الفترة.",
+        "summary.forwardBehind": "محفظتك خلف السوق في هذه الفترة.",
         // Week label prefix
         "summary.weekPrefix": "المحفظة – أسبوع %@",
-        // Since-started content
+        // Since-started / period content
         "summary.explainTitle": "كيف يتم الحساب",
-        "summary.explainBody": "قيمة محفظتك هي مجموع مراكزك الحالية بأسعار السوق اليوم. الرقم المعروض هو التغيّر منذ بدء التتبّع.",
+        "summary.explainBody": "قيمة محفظتك هي مجموع مراكزك الحالية بأسعار السوق اليوم. الرقم المعروض هو التغيّر خلال فترة الملخص التي اخترتها.",
         "summary.sinceStarted": "منذ البداية",
-        "summary.sentencePositive": "ارتفعت المحفظة %.1f%% منذ البداية. %d من %d مراكز رابحة. ساهم %@ بـ %@ %@.",
-        "summary.sentenceNegative": "انخفضت المحفظة %.1f%% منذ البداية. %d من %d مراكز رابحة. ساهم %@ بـ %@ %@.",
-        "summary.bricksSince": "الطابوق المكتسب منذ البداية"
+        "summary.sentencePositive": "ارتفعت المحفظة %.1f%% %@. المراكز الرابحة: %d من %d. ساهم %@ بـ %@ %@.",
+        "summary.sentenceNegative": "انخفضت المحفظة %.1f%% %@. المراكز الرابحة: %d من %d. ساهم %@ بـ %@ %@.",
+        "summary.bricksSince": "الطابوق المكتسب منذ البداية",
+        "summary.bricksPeriod": "الطابوق المكتسب %@",
+        // Summary frequency
+        "freq.daily": "يومي",
+        "freq.weekly": "أسبوعي",
+        "freq.biweekly": "كل أسبوعين",
+        "freq.monthly": "شهري",
+        "period.daily": "اليوم",
+        "period.weekly": "هذا الأسبوع",
+        "period.biweekly": "خلال الأسبوعين الماضيين",
+        "period.monthly": "هذا الشهر",
+        "notif.title": "ملخصك جاهز!",
+        "notif.body": "اطّلع على أداء محفظتك وعدد الطابوق الذي كسبته.",
+        // Sign-in gate
+        "signin.requiredTitle": "سجّل الدخول لإضافة الأسهم",
+        "signin.requiredBody": "التصفح متاح للجميع، لكن إضافة الأسهم إلى محفظتك تتطلب حسابًا ليتم حفظ تقدمك وطابوقك.",
+        "signin.notNow": "ليس الآن",
+        "signin.failed": "لم يكتمل تسجيل الدخول. تسجيل الدخول عبر Apple غير مفعّل بعد في هذا التطبيق — حاول لاحقًا.",
+        // Privacy & consent
+        "consent.title": "قبل أن تبدأ",
+        "consent.body": "• بيانات محفظتك تُحفظ على جهازك فقط — لا نملك خوادم ولا نستلم بياناتك.\n• تسجيل الدخول عبر Apple يحفظ معرّفًا مجهولًا على جهازك فقط.\n• أسعار الأسهم تُجلب من خدمة بيانات سوق خارجية مباشرة من جهازك.\n• الإشعارات اختيارية وتُعالج على جهازك.",
+        "consent.readPolicy": "اقرأ سياسة الخصوصية كاملة",
+        "consent.agree": "أوافق وأتابع",
+        "privacy.title": "سياسة الخصوصية",
+        "legal.notAdvice": "للمتابعة والتثقيف فقط — ليس نصيحة استثمارية."
     ]
 }

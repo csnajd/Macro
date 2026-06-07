@@ -123,7 +123,7 @@ struct HouseProgressionView: View {
                                             .fixedSize(horizontal: false, vertical: true)
 
                                         if !isUnlocked {
-                                            Text(String(format: lang.t("house.requiresBricks"), stage.requiredBricks))
+                                            Text(String(format: lang.t("house.requiresBricks"), lang.bricks(stage.requiredBricks)))
                                                 .font(.system(size: 11, weight: .semibold))
                                                 .foregroundColor(Color("burgindy").opacity(0.8))
                                                 .padding(.top, 2)

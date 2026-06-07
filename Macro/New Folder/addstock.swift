@@ -27,6 +27,7 @@ struct BuyTarget: Identifiable {
 public struct AddStockView: View {
     @Environment(AppStore.self) private var store
     @Environment(LanguageManager.self) private var lang
+    @Environment(AuthManager.self) private var auth
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
 
@@ -34,6 +35,9 @@ public struct AddStockView: View {
     // Tapping a stock sets this; it drives the buy sheet. id == symbol so each
     // distinct stock builds a fresh sheet with the correct value.
     @State private var buyTarget: BuyTarget? = nil
+    // Guest gate: the stock a guest tried to add, opened after sign-in.
+    @State private var pendingBuySymbol: String? = nil
+    @State private var showSignInPrompt: Bool = false
 
     private let categories = ["Popular", "Banking", "Energy", "Real Estate", "Consumer", "Health"]
 
@@ -132,7 +136,7 @@ public struct AddStockView: View {
                                 Button {
                                     let sym = item.symbol
                                     store.searchText = ""
-                                    buyTarget = BuyTarget(symbol: sym)
+                                    attemptBuy(sym)
                                 } label: {
                                     HStack {
                                         VStack(alignment: .leading, spacing: 4) {
@@ -190,7 +194,7 @@ public struct AddStockView: View {
                                 // across categories never collide / reuse a row.
                                 ForEach(Array(categorizedDiscoverableStocks.enumerated()), id: \.offset) { _, stock in
                                     Button {
-                                        buyTarget = BuyTarget(symbol: stock.symbol)
+                                        attemptBuy(stock.symbol)
                                     } label: {
                                         DiscoverableRowComponent(stock: stock)
                                     }
@@ -204,11 +208,31 @@ public struct AddStockView: View {
                 }
             }
         }
+        .sheet(isPresented: $showSignInPrompt, onDismiss: {
+            if auth.isSignedIn, let sym = pendingBuySymbol {
+                buyTarget = BuyTarget(symbol: sym)
+            }
+            pendingBuySymbol = nil
+        }) {
+            SignInRequiredSheet()
+                .environment(auth)
+                .environment(lang)
+        }
         // The proper buy flow: quantity / price / date, real Transaction model.
         .sheet(item: $buyTarget) { target in
             BuyDetailSheet(symbol: target.symbol)
                 .environment(store)
                 .environment(lang)
+        }
+    }
+
+    // Guests can browse freely, but adding a stock requires Apple sign-in.
+    private func attemptBuy(_ symbol: String) {
+        if auth.isSignedIn {
+            buyTarget = BuyTarget(symbol: symbol)
+        } else {
+            pendingBuySymbol = symbol
+            showSignInPrompt = true
         }
     }
 }

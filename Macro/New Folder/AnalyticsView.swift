@@ -61,8 +61,9 @@ struct AnalyticsView: View {
         if remaining <= 0 {
             return lang.t("upgrade.builtFull")
         }
-        let key = remaining == 1 ? "upgrade.brickToNext" : "upgrade.bricksToNext"
-        return String(format: lang.t(key), remaining)
+        // lang.bricks() returns the grammatically correct phrase for any count
+        // (Arabic noun forms change at 1 / 2 / 3–10 / 11+).
+        return String(format: lang.t("upgrade.bricksToNext"), lang.bricks(remaining))
     }
 
     var body: some View {
