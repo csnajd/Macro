@@ -1,0 +1,249 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xliff xmlns="urn:oasis:names:tc:xliff:document:1.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="1.2" xsi:schemaLocation="urn:oasis:names:tc:xliff:document:1.2 http://docs.oasis-open.org/xliff/v1.2/os/xliff-core-1.2-strict.xsd">
+  <file original="Macro/New Folder/InfoPlist.xcstrings" source-language="en" target-language="en" datatype="plaintext">
+    <header>
+      <tool tool-id="com.apple.dt.xcode" tool-name="Xcode" tool-version="26.0.1" build-num="17A400"/>
+    </header>
+    <body>
+      <trans-unit id="CFBundleDisplayName" xml:space="preserve">
+        <source/>
+        <target state="new"/>
+        <note>Bundle display name</note>
+      </trans-unit>
+      <trans-unit id="CFBundleName" xml:space="preserve">
+        <source>Macro</source>
+        <target state="new">Macro</target>
+        <note>Bundle name</note>
+      </trans-unit>
+    </body>
+  </file>
+  <file original="Macro/New Folder/Localizable.xcstrings" source-language="en" target-language="en" datatype="plaintext">
+    <header>
+      <tool tool-id="com.apple.dt.xcode" tool-name="Xcode" tool-version="26.0.1" build-num="17A400"/>
+    </header>
+    <body>
+      <trans-unit id="%@" xml:space="preserve">
+        <source>%@</source>
+        <target state="new">%@</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%@ SAR" xml:space="preserve">
+        <source>%@ SAR</source>
+        <target state="new">%@ SAR</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%@%@ SAR" xml:space="preserve">
+        <source>%1$@%2$@ SAR</source>
+        <target state="new">%1$@%2$@ SAR</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%lld" xml:space="preserve">
+        <source>%lld</source>
+        <target state="new">%lld</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%lld %@" xml:space="preserve">
+        <source>%1$lld %2$@</source>
+        <target state="new">%1$lld %2$@</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%lld SAR" xml:space="preserve">
+        <source>%lld SAR</source>
+        <target state="new">%lld SAR</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="+54" xml:space="preserve">
+        <source>+54</source>
+        <target state="new">+54</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="/" xml:space="preserve">
+        <source>/</source>
+        <target state="new">/</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="2 days remaining" xml:space="preserve">
+        <source>2 days remaining</source>
+        <target state="new">2 days remaining</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Add Stock" xml:space="preserve">
+        <source>Add Stock</source>
+        <target state="new">Add Stock</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Add Stock Inline" xml:space="preserve">
+        <source>Add Stock Inline</source>
+        <target state="new">Add Stock Inline</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Back" xml:space="preserve">
+        <source>Back</source>
+        <target state="new">Back</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="CONSTRUCTION PIPELINE" xml:space="preserve">
+        <source>CONSTRUCTION PIPELINE</source>
+        <target state="new">CONSTRUCTION PIPELINE</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Close Panel" xml:space="preserve">
+        <source>Close Panel</source>
+        <target state="new">Close Panel</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="En" xml:space="preserve">
+        <source>En</source>
+        <target state="new">En</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Estate Blueprint" xml:space="preserve">
+        <source>Estate Blueprint</source>
+        <target state="new">Estate Blueprint</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Get started" xml:space="preserve">
+        <source>Get started</source>
+        <target state="new">Get started</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="House" xml:space="preserve">
+        <source>House</source>
+        <target state="new">House</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Lifetime Brick Score: %lld" xml:space="preserve">
+        <source>Lifetime Brick Score: %lld</source>
+        <target state="new">Lifetime Brick Score: %lld</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Next upgrade in" xml:space="preserve">
+        <source>Next upgrade in</source>
+        <target state="new">Next upgrade in</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="PORTFOLIO" xml:space="preserve">
+        <source>PORTFOLIO</source>
+        <target state="new">PORTFOLIO</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Portfolio" xml:space="preserve">
+        <source>Portfolio</source>
+        <target state="new">Portfolio</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Rassah" xml:space="preserve">
+        <source>Rassah</source>
+        <target state="new">Rassah</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Requires %lld Bricks" xml:space="preserve">
+        <source>Requires %lld Bricks</source>
+        <target state="new">Requires %lld Bricks</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="SAR" xml:space="preserve">
+        <source>SAR</source>
+        <target state="new">SAR</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Search global or Tadawul stocks..." xml:space="preserve">
+        <source>Search global or Tadawul stocks...</source>
+        <target state="new">Search global or Tadawul stocks...</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Sign in with Apple" xml:space="preserve">
+        <source>Sign in with Apple</source>
+        <target state="new">Sign in with Apple</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Stage %lld: %@" xml:space="preserve">
+        <source>Stage %1$lld: %2$@</source>
+        <target state="new">Stage %1$lld: %2$@</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Summary" xml:space="preserve">
+        <source>Summary</source>
+        <target state="new">Summary</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="TASI (مؤشر كل الأسهم)" xml:space="preserve">
+        <source>TASI (مؤشر كل الأسهم)</source>
+        <target state="new">TASI (مؤشر كل الأسهم)</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Total Invested" xml:space="preserve">
+        <source>Total Invested</source>
+        <target state="new">Total Invested</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Total gain" xml:space="preserve">
+        <source>Total gain</source>
+        <target state="new">Total gain</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Your journey starts&#10;with a brick." xml:space="preserve">
+        <source>Your journey starts
+with a brick.</source>
+        <target state="new">Your journey starts
+with a brick.</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Your portfolio is empty" xml:space="preserve">
+        <source>Your portfolio is empty</source>
+        <target state="new">Your portfolio is empty</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="الطابوق المكتسب هذا الأسبوع" xml:space="preserve">
+        <source>الطابوق المكتسب هذا الأسبوع</source>
+        <target state="new">الطابوق المكتسب هذا الأسبوع</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="الملخص" xml:space="preserve">
+        <source>الملخص</source>
+        <target state="new">الملخص</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="الملخص القادم: %@" xml:space="preserve">
+        <source>الملخص القادم: %@</source>
+        <target state="new">الملخص القادم: %@</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="أضف أسهمًا لتوليد الملخص" xml:space="preserve">
+        <source>أضف أسهمًا لتوليد الملخص</source>
+        <target state="new">أضف أسهمًا لتوليد الملخص</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="إعدادات الملخص" xml:space="preserve">
+        <source>إعدادات الملخص</source>
+        <target state="new">إعدادات الملخص</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="ع" xml:space="preserve">
+        <source>ع</source>
+        <target state="new">ع</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="كيف تم الحساب" xml:space="preserve">
+        <source>كيف تم الحساب</source>
+        <target state="new">كيف تم الحساب</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="محفظتك" xml:space="preserve">
+        <source>محفظتك</source>
+        <target state="new">محفظتك</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="من أرباحك" xml:space="preserve">
+        <source>من أرباحك</source>
+        <target state="new">من أرباحك</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="يتم تحليل محفظتك…" xml:space="preserve">
+        <source>يتم تحليل محفظتك…</source>
+        <target state="new">يتم تحليل محفظتك…</target>
+        <note/>
+      </trans-unit>
+    </body>
+  </file>
+</xliff>

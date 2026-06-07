@@ -10,9 +10,7 @@ import SwiftData
 
 @main
 struct MacroApp: App {
-    // The ONE and only AppStore for the whole app.
     @State private var store = AppStore()
-    // App-wide language manager (Arabic by default, persisted).
     @State private var lang = LanguageManager()
     // Apple sign-in state (guests can browse; adding stocks requires sign-in).
     @State private var auth = AuthManager()
@@ -24,7 +22,6 @@ struct MacroApp: App {
                 .environment(lang)
                 .environment(auth)
         }
-        // Persisted store: transactions + value snapshots.
         .modelContainer(for: [Transaction.self, PortfolioSnapshot.self])
     }
 }

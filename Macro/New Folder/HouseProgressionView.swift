@@ -2,114 +2,192 @@
 //  HouseProgressionView.swift
 //  Macro
 //
-//  Created by Ghida Abdullah al-Mughamer on 01/06/2026.
-//
 
 import SwiftUI
-import SwiftData
+
+struct NajdiBuildingStage: Identifiable {
+    let id = UUID()
+    let level: Int
+    let title: String
+    let description: String
+    let bricksRequired: Int
+}
 
 struct HouseProgressionView: View {
     @Environment(AppStore.self) private var store
-    @Environment(LanguageManager.self) private var lang
     @Environment(\.dismiss) private var dismiss
 
-    // Stages now come from the shared HouseStages source (see HouseStage.swift).
-    private let constructionStages = HouseStages.all
+    private let sarPerBrick: Double = 3.4
 
-    private var currentActiveStage: HouseStage {
-        HouseStages.currentStage(forBricks: store.brickCount)
+    @State private var selectedLevelTab: Int = 1
+    @State private var isPlacingBrickAnimation: Bool = false
+
+    private let stages = [
+        NajdiBuildingStage(level: 1, title: "Desert Groundwork",
+                           description: "Plotting structural lines and clearing core sands.",
+                           bricksRequired: 0),
+        NajdiBuildingStage(level: 2, title: "Lower Archways & Framing",
+                           description: "Raising core perimeter blocks and pointed archways.",
+                           bricksRequired: 50),
+        NajdiBuildingStage(level: 3, title: "Upper Facade & Frieze",
+                           description: "Sculpting triangular patterns and gateway towers.",
+                           bricksRequired: 150),
+        NajdiBuildingStage(level: 4, title: "Completed Heritage Estate",
+                           description: "Polished multi-tier structural palace complete.",
+                           bricksRequired: 350)
+    ]
+
+    private var totalBricks: Int { store.brickCount }
+
+    private var currentActiveStage: NajdiBuildingStage {
+        stages.last(where: { totalBricks >= $0.bricksRequired }) ?? stages[0]
+    }
+
+    private var nextStageTarget: NajdiBuildingStage? {
+        stages.first(where: { $0.bricksRequired > totalBricks })
+    }
+
+    private var levelProgressPercentage: CGFloat {
+        guard let next = nextStageTarget else { return 1.0 }
+        let currentMilestone = currentActiveStage.bricksRequired
+        let totalNeeded = next.bricksRequired - currentMilestone
+        guard totalNeeded > 0 else { return 0.0 }
+        let earned = totalBricks - currentMilestone
+        return max(0.0, min(1.0, CGFloat(earned) / CGFloat(totalNeeded)))
     }
 
     var body: some View {
         ZStack {
-            // Premium background canvas tint
-            Color(red: 247/255, green: 246/255, blue: 242/255)
+            Color(red: 245/255, green: 242/255, blue: 235/255)
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
-                // MARK: - 1. Custom Back Header Navigation
+
+                // Header
                 HStack {
-                    Button {
-                        dismiss()
-                    } label: {
+                    Button { dismiss() } label: {
                         HStack(spacing: 6) {
                             Image(systemName: "chevron.left")
                                 .font(.system(size: 16, weight: .semibold))
-                            Text(lang.t("house.back"))
+                            Text("Dashboard")
                         }
                         .foregroundColor(Color("brown"))
                     }
                     Spacer()
-                    Text(lang.t("house.blueprint"))
+                    Text("Estate Build Lab")
                         .font(.system(size: 17, weight: .bold))
                         .foregroundColor(Color("brown"))
                     Spacer()
-                    CoinBadge()
+                    Text("🧱 \(totalBricks)")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(Color("brown"))
                 }
                 .padding(.horizontal, 24)
                 .padding(.top, 16)
 
                 ScrollView(.vertical, showsIndicators: false) {
-                    VStack(spacing: 28) {
+                    VStack(spacing: 20) {
 
-                        // MARK: - 2. Current Construction Visual Centerpiece
-                        VStack(spacing: 16) {
-                            ZStack {
-                                Circle()
-                                    .fill(Color("white"))
-                                    .frame(width: 180, height: 180)
-                                    .shadow(color: Color("brown").opacity(0.04), radius: 12, x: 0, y: 6)
+                        let selectedStageDetails = stages.first(where: { $0.level == selectedLevelTab }) ?? stages[0]
+                        let isLevelUnlocked = totalBricks >= selectedStageDetails.bricksRequired
+                        let isCurrentlyBuilding = currentActiveStage.level == selectedLevelTab && nextStageTarget != nil
 
-                                Image("brick")
-                                    .resizable()
-                                    .scaledToFit()
-                                    .frame(width: 90, height: 90)
+                        ZStack(alignment: .topLeading) {
+                            RoundedRectangle(cornerRadius: 28)
+                                .fill(Color("white"))
+                                .shadow(color: Color("brown").opacity(0.06), radius: 16, x: 0, y: 8)
+
+                            NajdiCanvasView(bricksEarned: totalBricks)
+                                .frame(height: 360)
+                                .clipShape(RoundedRectangle(cornerRadius: 28))
+                                .saturation(isLevelUnlocked ? 1.0 : 0.2)
+                                .blur(radius: isLevelUnlocked ? 0.0 : (isCurrentlyBuilding ? 1.0 : 5.0))
+
+                            if !isLevelUnlocked && !isCurrentlyBuilding {
+                                ZStack {
+                                    Color.black.opacity(0.35)
+                                    VStack(spacing: 6) {
+                                        Image(systemName: "lock.shield.fill")
+                                            .font(.system(size: 26))
+                                            .foregroundColor(.white)
+                                        Text("BLUEPRINT LOCKED")
+                                            .font(.system(size: 11, weight: .bold))
+                                            .tracking(1.5)
+                                            .foregroundColor(.white)
+                                    }
+                                }
+                                .clipShape(RoundedRectangle(cornerRadius: 28))
                             }
 
-                            VStack(spacing: 4) {
-                                Text("\(lang.t("house.stagePrefix")) \(currentActiveStage.stageNumber): \(lang.t(currentActiveStage.nameKey))")
-                                    .font(.system(size: 18, weight: .bold))
-                                    .foregroundColor(Color("brown"))
+                            if isCurrentlyBuilding {
+                                VStack {
+                                    Spacer()
+                                    HStack {
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            HStack(spacing: 6) {
+                                                ProgressView().tint(.white)
+                                                Text("MASONS BUILDING...")
+                                                    .font(.system(size: 11, weight: .bold))
+                                                    .foregroundColor(.white)
+                                            }
+                                            Text("\(Int(levelProgressPercentage * 100))% Layered")
+                                                .font(.system(size: 16, weight: .black))
+                                                .foregroundColor(.white)
+                                        }
+                                        Spacer()
+                                        Image(systemName: "hammer.fill")
+                                            .font(.system(size: 24))
+                                            .foregroundColor(.white)
+                                            .rotationEffect(.degrees(isPlacingBrickAnimation ? -20 : 20))
+                                            .animation(.easeInOut(duration: 0.5).repeatForever(autoreverses: true),
+                                                       value: isPlacingBrickAnimation)
+                                            .onAppear { isPlacingBrickAnimation = true }
+                                    }
+                                    .padding(20)
+                                    .background(.ultraThinMaterial)
+                                }
+                                .clipShape(RoundedRectangle(cornerRadius: 28))
+                            }
 
-                                Text(String(format: lang.t("house.lifetimeScore"), store.brickCount))
-                                    .font(.system(size: 13, weight: .medium))
-                                    .foregroundColor(Color("light brown"))
+                            HStack {
+                                Text("PHASE 0\(selectedLevelTab)")
+                                    .font(.system(size: 11, weight: .black))
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 6)
+                                    .background(isLevelUnlocked
+                                                ? Color("dark green")
+                                                : (isCurrentlyBuilding ? Color("light brown") : Color.gray))
+                                    .clipShape(Capsule())
+                                Spacer()
+                            }
+                            .padding(16)
+                        }
+                        .frame(height: 360)
+                        .padding(.top, 10)
+
+                        // Level tabs
+                        HStack(spacing: 12) {
+                            ForEach(stages) { stage in
+                                let isActive = selectedLevelTab == stage.level
+                                let isUnlocked = totalBricks >= stage.bricksRequired
+                                Button { selectedLevelTab = stage.level } label: {
+                                    VStack(spacing: 4) {
+                                        Text("Lvl \(stage.level)")
+                                            .font(.system(size: 14, weight: .black))
+                                        Image(systemName: isUnlocked ? "checkmark.circle.fill" : "lock.fill")
+                                            .font(.system(size: 11))
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 10)
+                                    .background(isActive ? Color("brown") : Color("white"))
+                                    .foregroundColor(isActive ? .white : (isUnlocked ? Color("brown") : .gray.opacity(0.5)))
+                                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                                }
                             }
                         }
-                        .padding(.top, 12)
 
-                        // MARK: - 3. Architectural Development Milestones Pipeline Tracker
-                        VStack(alignment: .leading, spacing: 0) {
-                            Text(lang.t("house.pipeline"))
-                                .font(.system(size: 11, weight: .bold))
-                                .foregroundColor(.gray.opacity(0.7))
-                                .tracking(1.0)
-                                .padding(.bottom, 16)
-                                .padding(.horizontal, 4)
-
-                            ForEach(0..<constructionStages.count, id: \.self) { index in
-                                let stage = constructionStages[index]
-                                let isUnlocked = store.brickCount >= stage.requiredBricks
-                                let isCurrent = currentActiveStage.id == stage.id
-
-                                HStack(alignment: .top, spacing: 16) {
-                                    // Milestone Timeline Connector Nodes
-                                    VStack(spacing: 0) {
-                                        Circle()
-                                            .fill(isCurrent ? Color("light brown") : (isUnlocked ? Color("green") : Color.gray.opacity(0.2)))
-                                            .frame(width: 14, height: 14)
-                                            .overlay(
-                                                Circle()
-                                                    .stroke(Color("white"), lineWidth: 2)
-                                            )
-
-                                        if index < constructionStages.count - 1 {
-                                            Rectangle()
-                                                .fill(isUnlocked ? Color("green").opacity(0.5) : Color.gray.opacity(0.15))
-                                                .frame(width: 2, height: 50)
-                                        }
-                                    }
-
+<<<<<<< HEAD
                                     // Content Card Description Layouts
                                     VStack(alignment: .leading, spacing: 4) {
                                         Text(lang.t(stage.nameKey))
@@ -127,21 +205,67 @@ struct HouseProgressionView: View {
                                                 .font(.system(size: 11, weight: .semibold))
                                                 .foregroundColor(Color("burgindy").opacity(0.8))
                                                 .padding(.top, 2)
+=======
+                        // Progress card
+                        VStack(spacing: 14) {
+                            if let next = nextStageTarget {
+                                VStack(spacing: 8) {
+                                    HStack {
+                                        Text("Active Structural Progress")
+                                            .font(.system(size: 12, weight: .bold))
+                                            .foregroundColor(Color("brown").opacity(0.8))
+                                        Spacer()
+                                        Text("\(totalBricks) / \(next.bricksRequired) Bricks")
+                                            .font(.system(size: 12, weight: .bold))
+                                            .foregroundColor(Color("brown"))
+                                    }
+                                    GeometryReader { geo in
+                                        ZStack(alignment: .leading) {
+                                            RoundedRectangle(cornerRadius: 100)
+                                                .fill(Color("dark baige").opacity(0.2))
+                                            RoundedRectangle(cornerRadius: 100)
+                                                .fill(LinearGradient(
+                                                    colors: [Color("light brown"), Color("brown")],
+                                                    startPoint: .leading, endPoint: .trailing))
+                                                .frame(width: geo.size.width * levelProgressPercentage)
+>>>>>>> main
                                         }
                                     }
-                                    .padding(.bottom, index < constructionStages.count - 1 ? 16 : 0)
-
-                                    Spacer()
+                                    .frame(height: 12)
                                 }
+
+                                let blocksRemaining = next.bricksRequired - totalBricks
+                                let capitalRequired = Double(blocksRemaining) * sarPerBrick
+                                Text("Earn +\(String(format: "%.2f", capitalRequired)) SAR more in profits to generate the next \(blocksRemaining) bricks.")
+                                    .font(.system(size: 11, weight: .medium))
+                                    .foregroundColor(.gray)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            } else {
+                                Text("👑 Maximum Simulation Level Reached!")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundColor(Color("dark green"))
                             }
                         }
                         .padding(20)
                         .background(Color("white"))
-                        .clipShape(RoundedRectangle(cornerRadius: 20))
-                        .shadow(color: Color.black.opacity(0.01), radius: 8, x: 0, y: 4)
+                        .clipShape(RoundedRectangle(cornerRadius: 22))
+
+                        // Stage description
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(selectedStageDetails.title.uppercased())
+                                .font(.system(size: 11, weight: .black))
+                                .foregroundColor(Color("light brown"))
+                            Text(selectedStageDetails.description)
+                                .font(.system(size: 13))
+                                .foregroundColor(.gray)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(20)
+                        .background(Color("white"))
+                        .clipShape(RoundedRectangle(cornerRadius: 22))
                     }
                     .padding(.horizontal, 24)
-                    .padding(.bottom, 40)
+                    .padding(.bottom, 32)
                 }
             }
         }
