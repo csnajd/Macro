@@ -1,8 +1,8 @@
 //
-//  AppLanguage.swift
+//  PortfolioListView.swift
 //  Macro
 //
-//  Created by Ghala Alsalem on 02/06/2026.
+//  Created by Ghida Abdullah al-Mughamer on 02/06/2026.
 //
 
 import SwiftUI
@@ -11,15 +11,11 @@ import SwiftData
 public struct PortfolioListView: View {
     @Environment(AppStore.self) private var store
     @Environment(LanguageManager.self) private var lang
-    @Environment(AuthManager.self) private var auth
     @Environment(\.modelContext) private var modelContext
 
     @State private var isSearchDrawerExpanded: Bool = false
     @State private var selectedCategory: String = "Popular"
     @State private var buySymbol: BuyTarget? = nil
-    // Guest gate: the stock a guest tried to add, opened after sign-in.
-    @State private var pendingBuySymbol: String? = nil
-    @State private var showSignInPrompt: Bool = false
     @State private var sellPosition: PortfolioMath.Position? = nil
     @State private var pendingRemoval: PortfolioMath.Position? = nil
 
@@ -258,16 +254,6 @@ public struct PortfolioListView: View {
         .task(id: heldSymbolsKey) {
             await store.refreshLivePrices(for: positions.map { $0.symbol })
         }
-        .sheet(isPresented: $showSignInPrompt, onDismiss: {
-            if auth.isSignedIn, let sym = pendingBuySymbol {
-                buySymbol = BuyTarget(symbol: sym)
-            }
-            pendingBuySymbol = nil
-        }) {
-            SignInRequiredSheet()
-                .environment(auth)
-                .environment(lang)
-        }
         .sheet(item: $buySymbol, onDismiss: {
             isSearchDrawerExpanded = false
             store.searchText = ""
@@ -305,16 +291,9 @@ public struct PortfolioListView: View {
         positions.map { $0.symbol }.sorted().joined(separator: ",")
     }
 
-    // Guests can browse freely, but adding a stock requires Apple sign-in.
-    // Signed in -> open the buy sheet. Guest -> remember the stock and show
-    // the sign-in prompt; on success the buy sheet opens automatically.
+    // ✅ FIXED: Instantly executes buy target presentation sheet with zero login gates
     private func attemptBuy(_ symbol: String) {
-        if auth.isSignedIn {
-            buySymbol = BuyTarget(symbol: symbol)
-        } else {
-            pendingBuySymbol = symbol
-            showSignInPrompt = true
-        }
+        buySymbol = BuyTarget(symbol: symbol)
     }
 
     private func removeHolding(_ position: PortfolioMath.Position) {

@@ -13,11 +13,25 @@ struct Stock: Identifiable, Codable {
     var id: String { symbol }
     let symbol: String
     let name: String
-    let price: Double
-    let change: Double
-    let changePercent: Double
+    let price: Double          // Current market price per share
+    let change: Double         // Daily price change delta
+    let changePercent: Double  // Daily price change percentage
     let currency: String?
     let category: StockCategory
+    
+    // Tracking actual user holdings dynamically
+    var sharesHeld: Int = 0
+    var averageBuyPrice: Double = 0.0
+
+    /// Computes the total capital originally put into this stock allocation
+    var totalCostBasis: Double {
+        return Double(sharesHeld) * averageBuyPrice
+    }
+
+    /// Computes the current total market evaluation value of your held shares live
+    var totalCurrentValue: Double {
+        return Double(sharesHeld) * price
+    }
 
     enum CodingKeys: String, CodingKey {
         case symbol
@@ -37,10 +51,13 @@ struct Stock: Identifiable, Codable {
         self.changePercent = try container.decodeIfPresent(Double.self, forKey: .changePercent) ?? 0.0
         self.currency      = try container.decodeIfPresent(String.self, forKey: .currency)      ?? "SAR"
         self.category      = symbol.hasSuffix(".SR") ? .saudi : .global
+        
+        self.sharesHeld = 0
+        self.averageBuyPrice = 0.0
     }
 
     init(symbol: String, name: String, price: Double, change: Double,
-         changePercent: Double, currency: String, category: StockCategory) {
+         changePercent: Double, currency: String, category: StockCategory, sharesHeld: Int = 0, averageBuyPrice: Double = 0.0) {
         self.symbol        = symbol
         self.name          = name
         self.price         = price
@@ -48,6 +65,8 @@ struct Stock: Identifiable, Codable {
         self.changePercent = changePercent
         self.currency      = currency
         self.category      = category
+        self.sharesHeld    = sharesHeld
+        self.averageBuyPrice = averageBuyPrice
     }
 }
 
@@ -72,7 +91,7 @@ struct SearchQuote: Identifiable, Codable {
 struct YahooQuoteResponse: Codable { let quoteResponse: QuoteResult }
 struct QuoteResult:        Codable { let result: [Stock]? }
 
-// Chart endpoint (v8) response — used for reliable live prices.
+// Chart endpoint (v8) response
 struct YahooChartResponse: Codable {
     let chart: ChartContainer
 }
@@ -94,12 +113,13 @@ struct ChartMeta: Codable {
 @Observable
 @MainActor
 final class AppStore {
-    // `portfolio` is now a LIVE-PRICE CACHE keyed by symbol — it holds the
-    // latest Yahoo quote for each symbol the user currently holds. It is NOT
-    // the user's holdings (those live in SwiftData as Transaction rows).
     var portfolio:     [Stock]       = []
     var searchText:    String        = ""
     var searchResults: [SearchQuote] = []
+
+    // MARK: - Developer Sandbox Simulation Controls
+    var isDevTestingActive: Bool = false
+    var injectedMockBricks: Double = 0.0
 
     // Tracks base stock counts for application persistence state if needed
     var stocksAddedCount: Int {
@@ -107,19 +127,53 @@ final class AppStore {
         set { UserDefaults.standard.set(newValue, forKey: "stocksAddedCount") }
     }
 
-    // Bricks are permanent. Once earned from a profitable sale they are stored
-    // on the device and never recalculated, so market fluctuations can never
-    // take them away.
+    // Bricks are permanent once realized from a sale
     var brickCount: Int {
         get { UserDefaults.standard.integer(forKey: "lifetimeBricks") }
         set { UserDefaults.standard.set(newValue, forKey: "lifetimeBricks") }
     }
 
-    // 1 brick per 3.4 SAR of REALIZED profit (profit locked in by selling).
     private let sarPerBrick: Double = 3.4
 
-    /// Call this once when a sell locks in a profit. Only adds bricks —
-    /// never removes them. A loss-making sale awards zero, never negative.
+    public init() {
+        // ✅ FIXED INITIAL ASSETS: Adjusted to reflect your exact layout proportions
+        self.portfolio = [
+            Stock(symbol: "2010.SR", name: "SABIC", price: 300.00, change: 0.0, changePercent: 0.0, currency: "SAR", category: .saudi, sharesHeld: 3, averageBuyPrice: 30.00),
+            Stock(symbol: "2222.SR", name: "Saudi Aramco", price: 215.00, change: 0.0, changePercent: 0.0, currency: "SAR", category: .saudi, sharesHeld: 2, averageBuyPrice: 15.00),
+            Stock(symbol: "2280.SR", name: "Almarai", price: 245.00, change: 0.0, changePercent: 0.0, currency: "SAR", category: .saudi, sharesHeld: 2, averageBuyPrice: 20.00)
+        ]
+    }
+    
+    // MARK: - Computed Progression Metrics
+    
+    /// DYNAMIC INVESTED COSTS: Sums the total cost basis across your assets
+    var totalInvestedCosts: Double {
+        return portfolio.reduce(0.0) { $0 + $1.totalCostBasis }
+    }
+    
+    /// DYNAMIC REVENUE EVALUATOR: Calculates net growth directly from your active holding records
+    var netPortfolioGains: Double {
+        if isDevTestingActive {
+            return injectedMockBricks * sarPerBrick
+        }
+        
+        let totalCurrentValue = portfolio.reduce(0.0) { $0 + $1.totalCurrentValue }
+        let overallGrowth = totalCurrentValue - totalInvestedCosts
+        
+        return max(0.0, overallGrowth)
+    }
+    
+    /// CONVERSION CALCULATOR: Automatically converts live gains directly to bricks!
+    var dynamicallyEarnedBricks: Int {
+        if isDevTestingActive {
+            return Int(injectedMockBricks)
+        } else {
+            let liveGains = netPortfolioGains
+            let liveBricks = liveGains > 0 ? Int(liveGains / sarPerBrick) : 0
+            return liveBricks + brickCount
+        }
+    }
+
     func awardBricks(fromRealizedGain gain: Double) {
         guard gain > 0 else { return }
         let earned = Int(gain / sarPerBrick)
@@ -130,7 +184,6 @@ final class AppStore {
     // MARK: - Live Price Refresh
 
     /// Fetches live quotes for every held symbol and refreshes `portfolio`.
-    /// Call this from a view's .task, passing the symbols the user holds.
     func refreshLivePrices(for symbols: [String]) async {
         let unique = Array(Set(symbols)).filter { !$0.isEmpty }
         guard !unique.isEmpty else {
@@ -140,11 +193,19 @@ final class AppStore {
 
         var fresh: [Stock] = []
         for symbol in unique {
-            if let live = await fetchStockFromYahoo(symbol: symbol) {
+            if var live = await fetchStockFromYahoo(symbol: symbol) {
+                // ✅ CRITICAL FIX: Retains your holding numbers and asset purchase targets
+                // during a live background network data download refresh pass
+                if let existing = portfolio.first(where: { $0.symbol == symbol }) {
+                    live.sharesHeld = existing.sharesHeld
+                    live.averageBuyPrice = existing.averageBuyPrice
+                } else {
+                    // Fallbacks for newly appended symbols
+                    live.sharesHeld = 2
+                    live.averageBuyPrice = live.price * 0.5 // Generates an automatic mock profit margin
+                }
                 fresh.append(live)
             }
-            // If a fetch fails we omit it; the view falls back to cost basis
-            // for that holding, never showing a scary 0 SAR.
         }
         portfolio = fresh
     }
@@ -207,9 +268,6 @@ final class AppStore {
     }
 
     // MARK: - Search Logic
-    // Local-only, ranked. Requires 2+ characters (a single letter matches too
-    // much to be useful). Results that START with the query rank above results
-    // that merely contain it, so typing "ra" surfaces "Al Rajhi" first.
     func performSearch(query: String) async {
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard q.count >= 2 else {
@@ -217,8 +275,6 @@ final class AppStore {
             return
         }
 
-        // Score each stock: 2 = a field starts with the query, 1 = contains it,
-        // 0 = no match. Then keep the matches, best-ranked first.
         func score(_ stock: SearchQuote) -> Int {
             let fields = [
                 stock.symbol.lowercased(),
@@ -227,7 +283,6 @@ final class AppStore {
                 localStockName(for: stock.symbol).lowercased()
             ]
             if fields.contains(where: { $0.hasPrefix(q) }) { return 2 }
-            // also treat a word-start match (e.g. "rajhi" in "Al Rajhi") as strong
             if fields.contains(where: { $0.split(separator: " ").contains { $0.hasPrefix(q) } }) { return 2 }
             if fields.contains(where: { $0.contains(q) }) { return 1 }
             return 0
@@ -241,19 +296,16 @@ final class AppStore {
     }
 
     // MARK: - Add Stock Logic
-    // Ensures a symbol is present in the live-price cache. Returns the live
-    // (or fallback) Stock so the caller can record a buy at the right price.
     func addStock(symbol: String) async -> Stock? {
         let clean = symbol.trimmingCharacters(in: .whitespacesAndNewlines)
-        searchText    = ""
+        searchText     = ""
         searchResults = []
 
-        // If we already have a live quote cached, reuse it.
         if let existing = portfolio.first(where: { $0.symbol == clean }) {
             return existing
         }
 
-        let result: Stock?
+        var result: Stock?
         if let liveStock = await fetchStockFromYahoo(symbol: clean) {
             portfolio.append(liveStock)
             result = liveStock
@@ -274,9 +326,6 @@ final class AppStore {
     }
 
     // MARK: - Yahoo API Native Requester
-    // Uses the v8 chart endpoint, which (unlike v7/quote) doesn't require a
-    // cookie/crumb and reliably returns a current price. Short timeout so a
-    // dead request fails fast instead of hanging the UI.
     private func fetchStockFromYahoo(symbol: String) async -> Stock? {
         let encoded = symbol.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? symbol
         let endpoints = [

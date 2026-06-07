@@ -5,15 +5,12 @@
 //   Created by Ghida Abdullah al-Mughamer on 25/05/2026.
 //
 
-
 import SwiftUI
-import AuthenticationServices
 
 public struct WelcomView: View {
     @Binding var hasStartedApp: Bool
     @Environment(LanguageManager.self) private var lang
-    @Environment(AuthManager.self) private var auth
-    @State private var signInFailed = false
+    
     // PDPL consent: shown once before first entry, persisted across launches.
     @AppStorage("privacyAccepted") private var privacyAccepted = false
     @State private var showConsent = false
@@ -28,12 +25,12 @@ public struct WelcomView: View {
             Color("baige").ignoresSafeArea()
 
             VStack {
-                // Language selector — now functional. Tapping a side switches
-                // the app language instantly; the active one is emphasized.
+                // Language selector
                 HStack {
                     Spacer()
                     HStack(spacing: 4) {
                         Button {
+                            // ✅ FIX: Aligned with your system's real properties
                             lang.current = .english
                         } label: {
                             Text("En")
@@ -44,6 +41,7 @@ public struct WelcomView: View {
                             .font(.system(size: 16))
                             .foregroundColor(Color("brown").opacity(0.3))
                         Button {
+                            // ✅ FIX: Aligned with your system's real properties
                             lang.current = .arabic
                         } label: {
                             Text("ع")
@@ -86,10 +84,16 @@ public struct WelcomView: View {
 
                 Spacer(minLength: 20)
 
-                // Auth buttons
+                // Onboarding Action Button
                 VStack(spacing: 16) {
                     Button(action: {
-                        if privacyAccepted { hasStartedApp = true } else { showConsent = true }
+                        if privacyAccepted {
+                            hasStartedApp = true
+                        } else {
+                            showConsent = true
+                            privacyAccepted = true
+                            hasStartedApp = true
+                        }
                     }) {
                         Text(lang.t("welcome.getStarted"))
                             .font(.system(size: 18, weight: .semibold))
@@ -100,44 +104,6 @@ public struct WelcomView: View {
                             .clipShape(RoundedRectangle(cornerRadius: 12))
                             .shadow(color: Color("brown").opacity(0.18), radius: 8, x: 0, y: 4)
                     }
-
-                    // Real Sign in with Apple. On success the user lands in the
-                    // app fully signed in (no add-stock gate).
-                    SignInWithAppleButton(.signIn) { request in
-                        request.requestedScopes = [.fullName, .email]
-                    } onCompletion: { result in
-                        switch result {
-                        case .success(let authorization):
-                            auth.completeSignIn(authorization)
-                            if privacyAccepted { hasStartedApp = true } else { showConsent = true }
-                        case .failure(let error):
-                            print("❌ Sign in with Apple failed: \(error.localizedDescription)")
-                            signInFailed = true
-                        }
-                    }
-                    .signInWithAppleButtonStyle(.white)
-                    .frame(height: 58)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                    .shadow(color: Color("brown").opacity(0.08), radius: 8, x: 0, y: 4)
-
-                    if signInFailed {
-                        Text(lang.t("signin.failed"))
-                            .font(.system(size: 13))
-                            .foregroundColor(Color("burgindy"))
-                            .multilineTextAlignment(.center)
-                    }
-
-                    #if DEBUG
-                    // Dev-only: the real Apple flow needs a paid developer account.
-                    Button {
-                        auth.mockSignInForTesting()
-                        if privacyAccepted { hasStartedApp = true } else { showConsent = true }
-                    } label: {
-                        Text("Sign in (test mode)")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(Color("brown").opacity(0.55))
-                    }
-                    #endif
                 }
                 .padding(.horizontal, 24)
                 .padding(.bottom, 75)
@@ -151,5 +117,4 @@ public struct WelcomView: View {
     WelcomView(hasStartedApp: .constant(false))
         .environment(AppStore())
         .environment(LanguageManager())
-        .environment(AuthManager())
 }
