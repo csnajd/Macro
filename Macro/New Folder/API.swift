@@ -2,36 +2,27 @@
 //  API.swift
 //  Macro
 //
-//  Created by Ghida Abdullah al-Mughamer on 30/11/1447 AH.
-//
 
 import Foundation
 import Observation
+import AuthenticationServices
 
 // MARK: - Core Structural Objects
 struct Stock: Identifiable, Codable {
     var id: String { symbol }
     let symbol: String
     let name: String
-    let price: Double          // Current market price per share
-    let change: Double         // Daily price change delta
-    let changePercent: Double  // Daily price change percentage
+    let price: Double
+    let change: Double
+    let changePercent: Double
     let currency: String?
     let category: StockCategory
-    
-    // Tracking actual user holdings dynamically
+
     var sharesHeld: Int = 0
     var averageBuyPrice: Double = 0.0
 
-    /// Computes the total capital originally put into this stock allocation
-    var totalCostBasis: Double {
-        return Double(sharesHeld) * averageBuyPrice
-    }
-
-    /// Computes the current total market evaluation value of your held shares live
-    var totalCurrentValue: Double {
-        return Double(sharesHeld) * price
-    }
+    var totalCostBasis: Double { Double(sharesHeld) * averageBuyPrice }
+    var totalCurrentValue: Double { Double(sharesHeld) * price }
 
     enum CodingKeys: String, CodingKey {
         case symbol
@@ -51,13 +42,13 @@ struct Stock: Identifiable, Codable {
         self.changePercent = try container.decodeIfPresent(Double.self, forKey: .changePercent) ?? 0.0
         self.currency      = try container.decodeIfPresent(String.self, forKey: .currency)      ?? "SAR"
         self.category      = symbol.hasSuffix(".SR") ? .saudi : .global
-        
         self.sharesHeld = 0
         self.averageBuyPrice = 0.0
     }
 
     init(symbol: String, name: String, price: Double, change: Double,
-         changePercent: Double, currency: String, category: StockCategory, sharesHeld: Int = 0, averageBuyPrice: Double = 0.0) {
+         changePercent: Double, currency: String, category: StockCategory,
+         sharesHeld: Int = 0, averageBuyPrice: Double = 0.0) {
         self.symbol        = symbol
         self.name          = name
         self.price         = price
@@ -91,16 +82,9 @@ struct SearchQuote: Identifiable, Codable {
 struct YahooQuoteResponse: Codable { let quoteResponse: QuoteResult }
 struct QuoteResult:        Codable { let result: [Stock]? }
 
-// Chart endpoint (v8) response
-struct YahooChartResponse: Codable {
-    let chart: ChartContainer
-}
-struct ChartContainer: Codable {
-    let result: [ChartResult]?
-}
-struct ChartResult: Codable {
-    let meta: ChartMeta
-}
+struct YahooChartResponse: Codable { let chart: ChartContainer }
+struct ChartContainer:     Codable { let result: [ChartResult]? }
+struct ChartResult:        Codable { let meta: ChartMeta }
 struct ChartMeta: Codable {
     let symbol: String?
     let currency: String?
@@ -109,7 +93,7 @@ struct ChartMeta: Codable {
     let previousClose: Double?
 }
 
-// MARK: - AppStore State Node
+// MARK: - AppStore
 @Observable
 @MainActor
 final class AppStore {
@@ -117,63 +101,58 @@ final class AppStore {
     var searchText:    String        = ""
     var searchResults: [SearchQuote] = []
 
-    // MARK: - Developer Sandbox Simulation Controls
     var isDevTestingActive: Bool = false
     var injectedMockBricks: Double = 0.0
 
-    // Tracks base stock counts for application persistence state if needed
+    private let sarPerBrick: Double = 3.4
+
+    // MARK: - Auth State
+    var isSignedIn: Bool {
+        get { UserDefaults.standard.bool(forKey: "isSignedIn") }
+        set { UserDefaults.standard.set(newValue, forKey: "isSignedIn") }
+    }
+
+    var userName: String {
+        get { UserDefaults.standard.string(forKey: "userName") ?? "" }
+        set { UserDefaults.standard.set(newValue, forKey: "userName") }
+    }
+
+    func signIn(appleUserID: String, name: String) {
+        UserDefaults.standard.set(appleUserID, forKey: "appleUserID")
+        userName = name
+        isSignedIn = true
+    }
+
+    func restoreSession() {
+        guard let id = UserDefaults.standard.string(forKey: "appleUserID") else { return }
+        ASAuthorizationAppleIDProvider().getCredentialState(forUserID: id) { state, _ in
+            DispatchQueue.main.async {
+                self.isSignedIn = (state == .authorized)
+            }
+        }
+    }
+
+    // MARK: - Brick State
     var stocksAddedCount: Int {
         get { UserDefaults.standard.integer(forKey: "stocksAddedCount") }
         set { UserDefaults.standard.set(newValue, forKey: "stocksAddedCount") }
     }
 
-    // Bricks are permanent once realized from a sale
+    /// Realized bricks only (locked in from sales). Never goes down.
     var brickCount: Int {
         get { UserDefaults.standard.integer(forKey: "lifetimeBricks") }
         set { UserDefaults.standard.set(newValue, forKey: "lifetimeBricks") }
     }
 
-    private let sarPerBrick: Double = 3.4
-
-    public init() {
-        // ✅ FIXED INITIAL ASSETS: Adjusted to reflect your exact layout proportions
-        self.portfolio = [
-            Stock(symbol: "2010.SR", name: "SABIC", price: 300.00, change: 0.0, changePercent: 0.0, currency: "SAR", category: .saudi, sharesHeld: 3, averageBuyPrice: 30.00),
-            Stock(symbol: "2222.SR", name: "Saudi Aramco", price: 215.00, change: 0.0, changePercent: 0.0, currency: "SAR", category: .saudi, sharesHeld: 2, averageBuyPrice: 15.00),
-            Stock(symbol: "2280.SR", name: "Almarai", price: 245.00, change: 0.0, changePercent: 0.0, currency: "SAR", category: .saudi, sharesHeld: 2, averageBuyPrice: 20.00)
-        ]
-    }
-    
-    // MARK: - Computed Progression Metrics
-    
-    /// DYNAMIC INVESTED COSTS: Sums the total cost basis across your assets
-    var totalInvestedCosts: Double {
-        return portfolio.reduce(0.0) { $0 + $1.totalCostBasis }
-    }
-    
-    /// DYNAMIC REVENUE EVALUATOR: Calculates net growth directly from your active holding records
-    var netPortfolioGains: Double {
-        if isDevTestingActive {
-            return injectedMockBricks * sarPerBrick
-        }
-        
-        let totalCurrentValue = portfolio.reduce(0.0) { $0 + $1.totalCurrentValue }
-        let overallGrowth = totalCurrentValue - totalInvestedCosts
-        
-        return max(0.0, overallGrowth)
-    }
-    
-    /// CONVERSION CALCULATOR: Automatically converts live gains directly to bricks!
-    var dynamicallyEarnedBricks: Int {
-        if isDevTestingActive {
-            return Int(injectedMockBricks)
-        } else {
-            let liveGains = netPortfolioGains
-            let liveBricks = liveGains > 0 ? Int(liveGains / sarPerBrick) : 0
-            return liveBricks + brickCount
-        }
+    /// Total bricks = realized (from sales) + unrealized (from current gains).
+    /// Pass in the current unrealized gain from SwiftData positions.
+    func totalDynamicBricks(unrealizedGain: Double) -> Int {
+        if isDevTestingActive { return Int(injectedMockBricks) }
+        let unrealizedBricks = unrealizedGain > 0 ? Int(unrealizedGain / sarPerBrick) : 0
+        return brickCount + unrealizedBricks
     }
 
+    /// Award bricks from a realized sale gain. Bricks are permanent once awarded.
     func awardBricks(fromRealizedGain gain: Double) {
         guard gain > 0 else { return }
         let earned = Int(gain / sarPerBrick)
@@ -181,28 +160,23 @@ final class AppStore {
         brickCount += earned
     }
 
-    // MARK: - Live Price Refresh
+    // Legacy — kept so HouseProgressionView compiles without changes for now.
+    var dynamicallyEarnedBricks: Int { brickCount }
 
-    /// Fetches live quotes for every held symbol and refreshes `portfolio`.
+    // MARK: - Live Price Refresh
     func refreshLivePrices(for symbols: [String]) async {
         let unique = Array(Set(symbols)).filter { !$0.isEmpty }
-        guard !unique.isEmpty else {
-            portfolio = []
-            return
-        }
+        guard !unique.isEmpty else { portfolio = []; return }
 
         var fresh: [Stock] = []
         for symbol in unique {
             if var live = await fetchStockFromYahoo(symbol: symbol) {
-                // ✅ CRITICAL FIX: Retains your holding numbers and asset purchase targets
-                // during a live background network data download refresh pass
                 if let existing = portfolio.first(where: { $0.symbol == symbol }) {
                     live.sharesHeld = existing.sharesHeld
                     live.averageBuyPrice = existing.averageBuyPrice
                 } else {
-                    // Fallbacks for newly appended symbols
                     live.sharesHeld = 2
-                    live.averageBuyPrice = live.price * 0.5 // Generates an automatic mock profit margin
+                    live.averageBuyPrice = live.price * 0.5
                 }
                 fresh.append(live)
             }
@@ -210,19 +184,16 @@ final class AppStore {
         portfolio = fresh
     }
 
-    /// Live price for a symbol if we have a valid one cached, else nil.
     func livePrice(for symbol: String) -> Double? {
-        guard let p = portfolio.first(where: { $0.symbol == symbol })?.price,
-              p > 0 else { return nil }
+        guard let p = portfolio.first(where: { $0.symbol == symbol })?.price, p > 0 else { return nil }
         return p
     }
 
     // MARK: - Readable Names
     public func getReadableName(for symbol: String) -> String {
-        return localStockName(for: symbol)
+        localStockName(for: symbol)
     }
 
-    // MARK: - Local Repository Map Dictionaries
     private let localStockNames: [String: String] = [
         "2010.SR": "SABIC", "2222.SR": "Saudi Aramco", "7010.SR": "STC",
         "1120.SR": "Al Rajhi Bank", "1180.SR": "SNB (AlAhli)", "1150.SR": "Alinma Bank",
@@ -238,42 +209,39 @@ final class AppStore {
     ]
 
     private let localStocks: [SearchQuote] = [
-        SearchQuote(symbol: "2010.SR", shortname: "SABIC",      longname: "Saudi Basic Industries"),
-        SearchQuote(symbol: "2222.SR", shortname: "Aramco",     longname: "Saudi Aramco"),
-        SearchQuote(symbol: "7010.SR", shortname: "STC",        longname: "Saudi Telecom Company"),
-        SearchQuote(symbol: "1120.SR", shortname: "Al Rajhi",   longname: "Al Rajhi Bank"),
-        SearchQuote(symbol: "1180.SR", shortname: "SNB",        longname: "Saudi National Bank"),
-        SearchQuote(symbol: "1150.SR", shortname: "Alinma",     longname: "Alinma Bank"),
-        SearchQuote(symbol: "5110.SR", shortname: "SEC",        longname: "Saudi Electricity Company"),
-        SearchQuote(symbol: "2082.SR", shortname: "ACWA Power", longname: "ACWA Power Company"),
-        SearchQuote(symbol: "4290.SR", shortname: "Aldrees",    longname: "Aldrees Petroleum"),
-        SearchQuote(symbol: "2280.SR", shortname: "Almarai",    longname: "Almarai Company"),
-        SearchQuote(symbol: "4003.SR", shortname: "Extra",      longname: "United Electronics (Extra)"),
+        SearchQuote(symbol: "2010.SR", shortname: "SABIC",        longname: "Saudi Basic Industries"),
+        SearchQuote(symbol: "2222.SR", shortname: "Aramco",       longname: "Saudi Aramco"),
+        SearchQuote(symbol: "7010.SR", shortname: "STC",          longname: "Saudi Telecom Company"),
+        SearchQuote(symbol: "1120.SR", shortname: "Al Rajhi",     longname: "Al Rajhi Bank"),
+        SearchQuote(symbol: "1180.SR", shortname: "SNB",          longname: "Saudi National Bank"),
+        SearchQuote(symbol: "1150.SR", shortname: "Alinma",       longname: "Alinma Bank"),
+        SearchQuote(symbol: "5110.SR", shortname: "SEC",          longname: "Saudi Electricity Company"),
+        SearchQuote(symbol: "2082.SR", shortname: "ACWA Power",   longname: "ACWA Power Company"),
+        SearchQuote(symbol: "4290.SR", shortname: "Aldrees",      longname: "Aldrees Petroleum"),
+        SearchQuote(symbol: "2280.SR", shortname: "Almarai",      longname: "Almarai Company"),
+        SearchQuote(symbol: "4003.SR", shortname: "Extra",        longname: "United Electronics (Extra)"),
         SearchQuote(symbol: "1050.SR", shortname: "Saudi Fransi", longname: "Banque Saudi Fransi"),
-        SearchQuote(symbol: "1060.SR", shortname: "SAIB",       longname: "Saudi Investment Bank"),
+        SearchQuote(symbol: "1060.SR", shortname: "SAIB",         longname: "Saudi Investment Bank"),
         SearchQuote(symbol: "1020.SR", shortname: "Bank AlBilad", longname: "Bank AlBilad"),
-        SearchQuote(symbol: "2020.SR", shortname: "SABIC AN",   longname: "SABIC Agri-Nutrients"),
-        SearchQuote(symbol: "2310.SR", shortname: "Sipchem",    longname: "Sahara International Petrochemical"),
-        SearchQuote(symbol: "2060.SR", shortname: "Tasnee",     longname: "National Industrialization"),
+        SearchQuote(symbol: "2020.SR", shortname: "SABIC AN",     longname: "SABIC Agri-Nutrients"),
+        SearchQuote(symbol: "2310.SR", shortname: "Sipchem",      longname: "Sahara International Petrochemical"),
+        SearchQuote(symbol: "2060.SR", shortname: "Tasnee",       longname: "National Industrialization"),
         SearchQuote(symbol: "4300.SR", shortname: "Dar Al Arkan", longname: "Dar Al Arkan Real Estate"),
-        SearchQuote(symbol: "4250.SR", shortname: "Jabal Omar", longname: "Jabal Omar Development"),
-        SearchQuote(symbol: "4190.SR", shortname: "Jarir",      longname: "Jarir Marketing"),
-        SearchQuote(symbol: "4013.SR", shortname: "AlHabib",    longname: "Dr. Sulaiman AlHabib Medical"),
-        SearchQuote(symbol: "8010.SR", shortname: "Tawuniya",   longname: "Tawuniya Insurance"),
-        SearchQuote(symbol: "8020.SR", shortname: "Bupa",       longname: "Bupa Arabia")
+        SearchQuote(symbol: "4250.SR", shortname: "Jabal Omar",   longname: "Jabal Omar Development"),
+        SearchQuote(symbol: "4190.SR", shortname: "Jarir",        longname: "Jarir Marketing"),
+        SearchQuote(symbol: "4013.SR", shortname: "AlHabib",      longname: "Dr. Sulaiman AlHabib Medical"),
+        SearchQuote(symbol: "8010.SR", shortname: "Tawuniya",     longname: "Tawuniya Insurance"),
+        SearchQuote(symbol: "8020.SR", shortname: "Bupa",         longname: "Bupa Arabia")
     ]
 
     private func localStockName(for symbol: String) -> String {
         localStockNames[symbol] ?? symbol
     }
 
-    // MARK: - Search Logic
+    // MARK: - Search
     func performSearch(query: String) async {
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        guard q.count >= 2 else {
-            searchResults = []
-            return
-        }
+        guard q.count >= 2 else { searchResults = []; return }
 
         func score(_ stock: SearchQuote) -> Int {
             let fields = [
@@ -295,37 +263,33 @@ final class AppStore {
             .map { $0.stock }
     }
 
-    // MARK: - Add Stock Logic
+    // MARK: - Add Stock
     func addStock(symbol: String) async -> Stock? {
         let clean = symbol.trimmingCharacters(in: .whitespacesAndNewlines)
-        searchText     = ""
+        searchText    = ""
         searchResults = []
 
-        if let existing = portfolio.first(where: { $0.symbol == clean }) {
-            return existing
-        }
+        if let existing = portfolio.first(where: { $0.symbol == clean }) { return existing }
 
-        var result: Stock?
         if let liveStock = await fetchStockFromYahoo(symbol: clean) {
             portfolio.append(liveStock)
-            result = liveStock
-        } else {
-            let fallback = Stock(
-                symbol: clean,
-                name: localStockName(for: clean),
-                price: 0.0, change: 0.0, changePercent: 0.0,
-                currency: clean.hasSuffix(".SR") ? "SAR" : "USD",
-                category: clean.hasSuffix(".SR") ? .saudi : .global
-            )
-            portfolio.append(fallback)
-            result = fallback
+            stocksAddedCount += 1
+            return liveStock
         }
 
+        let fallback = Stock(
+            symbol: clean,
+            name: localStockName(for: clean),
+            price: 0.0, change: 0.0, changePercent: 0.0,
+            currency: clean.hasSuffix(".SR") ? "SAR" : "USD",
+            category: clean.hasSuffix(".SR") ? .saudi : .global
+        )
+        portfolio.append(fallback)
         stocksAddedCount += 1
-        return result
+        return fallback
     }
 
-    // MARK: - Yahoo API Native Requester
+    // MARK: - Yahoo Fetch
     private func fetchStockFromYahoo(symbol: String) async -> Stock? {
         let encoded = symbol.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? symbol
         let endpoints = [
@@ -341,26 +305,21 @@ final class AppStore {
                              forHTTPHeaderField: "User-Agent")
                 let (data, response) = try await URLSession.shared.data(for: req)
                 if let http = response as? HTTPURLResponse, http.statusCode != 200 { continue }
-
                 let decoded = try JSONDecoder().decode(YahooChartResponse.self, from: data)
                 guard let meta = decoded.chart.result?.first?.meta else { continue }
-
-                let price = meta.regularMarketPrice ?? 0
+                let price    = meta.regularMarketPrice ?? 0
                 let prevClose = meta.chartPreviousClose ?? meta.previousClose ?? price
-                let change = price - prevClose
+                let change   = price - prevClose
                 let changePct = prevClose > 0 ? (change / prevClose) * 100 : 0
-
                 return Stock(
                     symbol: meta.symbol ?? symbol,
                     name: localStockName(for: symbol),
-                    price: price,
-                    change: change,
-                    changePercent: changePct,
+                    price: price, change: change, changePercent: changePct,
                     currency: meta.currency ?? (symbol.hasSuffix(".SR") ? "SAR" : "USD"),
                     category: symbol.hasSuffix(".SR") ? .saudi : .global
                 )
             } catch {
-                print("❌ Core fetch connection block: \(error.localizedDescription)")
+                print("❌ Fetch error: \(error.localizedDescription)")
             }
         }
         return nil

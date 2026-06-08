@@ -1,20 +1,19 @@
 //
-//   WelcomView.swift
-//   Macro
-//
-//   Created by Ghida Abdullah al-Mughamer on 25/05/2026.
+//  WelcomView.swift
+//  Macro
 //
 
 import SwiftUI
+import AuthenticationServices
 
 public struct WelcomView: View {
     @Binding var hasStartedApp: Bool
+    @Environment(AppStore.self) private var store
     @Environment(LanguageManager.self) private var lang
-    
-    // PDPL consent: shown once before first entry, persisted across launches.
+
     @AppStorage("privacyAccepted") private var privacyAccepted = false
-    @State private var showConsent = false
     @State private var animateSlogan = false
+    @State private var signInError = false
 
     public init(hasStartedApp: Binding<Bool>) {
         self._hasStartedApp = hasStartedApp
@@ -29,10 +28,7 @@ public struct WelcomView: View {
                 HStack {
                     Spacer()
                     HStack(spacing: 4) {
-                        Button {
-                            // ✅ FIX: Aligned with your system's real properties
-                            lang.current = .english
-                        } label: {
+                        Button { lang.current = .english } label: {
                             Text("En")
                                 .font(.system(size: 18, weight: lang.current == .english ? .bold : .medium))
                                 .foregroundColor(Color("brown").opacity(lang.current == .english ? 1.0 : 0.5))
@@ -40,10 +36,7 @@ public struct WelcomView: View {
                         Text("/")
                             .font(.system(size: 16))
                             .foregroundColor(Color("brown").opacity(0.3))
-                        Button {
-                            // ✅ FIX: Aligned with your system's real properties
-                            lang.current = .arabic
-                        } label: {
+                        Button { lang.current = .arabic } label: {
                             Text("ع")
                                 .font(.system(size: 18, weight: lang.current == .arabic ? .bold : .regular))
                                 .foregroundColor(Color("brown").opacity(lang.current == .arabic ? 1.0 : 0.5))
@@ -84,17 +77,13 @@ public struct WelcomView: View {
 
                 Spacer(minLength: 20)
 
-                // Onboarding Action Button
-                VStack(spacing: 16) {
-                    Button(action: {
-                        if privacyAccepted {
-                            hasStartedApp = true
-                        } else {
-                            showConsent = true
-                            privacyAccepted = true
-                            hasStartedApp = true
-                        }
-                    }) {
+                // Action buttons
+                VStack(spacing: 14) {
+                    // Get Started (no account needed)
+                    Button {
+                        privacyAccepted = true
+                        hasStartedApp = true
+                    } label: {
                         Text(lang.t("welcome.getStarted"))
                             .font(.system(size: 18, weight: .semibold))
                             .foregroundColor(.white)
@@ -103,6 +92,35 @@ public struct WelcomView: View {
                             .background(Color("light brown"))
                             .clipShape(RoundedRectangle(cornerRadius: 12))
                             .shadow(color: Color("brown").opacity(0.18), radius: 8, x: 0, y: 4)
+                    }
+
+                    // Sign In with Apple
+                    SignInWithAppleButton(.signIn) { request in
+                        request.requestedScopes = [.fullName, .email]
+                    } onCompletion: { result in
+                        switch result {
+                        case .success(let auth):
+                            guard let credential = auth.credential as? ASAuthorizationAppleIDCredential else { return }
+                            store.signIn(
+                                appleUserID: credential.user,
+                                name: credential.fullName?.givenName ?? ""
+                            )
+                            privacyAccepted = true
+                            hasStartedApp = true
+                        case .failure:
+                            signInError = true
+                        }
+                    }
+                    .signInWithAppleButtonStyle(.black)
+                    .frame(height: 54)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+
+                    if signInError {
+                        Text(lang.t("signin.failed"))
+                            .font(.system(size: 12))
+                            .foregroundColor(Color("burgindy"))
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 8)
                     }
                 }
                 .padding(.horizontal, 24)
