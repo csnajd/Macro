@@ -169,16 +169,23 @@ final class AppStore {
             userName = ""
             return
         }
+ 
+        // Trust the saved session immediately so the user stays signed in
+        // across launches. We only sign out if Apple EXPLICITLY tells us the
+        // credential was revoked - not for .notFound / .transferred, which can
+        // occur on the simulator or transiently even when the session is fine.
+        currentUserID = savedID
+        isSignedIn = true
+        userName = UserDefaults.standard.string(forKey: Self.nameKey(for: savedID)) ?? ""
+ 
         ASAuthorizationAppleIDProvider().getCredentialState(forUserID: savedID) { [weak self] state, _ in
             Task { @MainActor in
                 guard let self else { return }
-                if state == .authorized {
-                    self.currentUserID = savedID
-                    self.isSignedIn = true
-                    self.userName = UserDefaults.standard.string(forKey: Self.nameKey(for: savedID)) ?? ""
-                } else {
+                if state == .revoked {
+                    // The user revoked access in Settings -> sign them out.
                     self.signOut()
                 }
+                // .authorized / .notFound / .transferred -> keep them signed in.
             }
         }
     }
@@ -203,7 +210,8 @@ final class AppStore {
     }
  
     /// Total bricks = realized (from sales) + unrealized (from current gains).
-    /// Returns 0 for a guest so the whole app reads as zero when signed out.
+    /// One brick is earned per 3.4 SAR of gain (sarPerBrick). Returns 0 for a
+    /// guest so the whole app reads as zero when signed out.
     func totalDynamicBricks(unrealizedGain: Double) -> Int {
         if isDevTestingActive { return Int(injectedMockBricks) }
         guard isSignedIn else { return 0 }
@@ -374,7 +382,7 @@ final class AppStore {
                     category: symbol.hasSuffix(".SR") ? .saudi : .global
                 )
             } catch {
-                print("❌ Fetch error: \(error.localizedDescription)")
+                print("Fetch error: \(error.localizedDescription)")
             }
         }
         return nil
