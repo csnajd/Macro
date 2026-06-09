@@ -240,7 +240,8 @@ struct BuyDetailSheet: View {
             type: .buy,
             quantity: quantity,
             pricePerShare: effectivePrice,
-            date: purchaseDate
+            date: purchaseDate,
+            userID: store.currentUserID   // ✅ stamp the buy with the current account
         )
         modelContext.insert(buy)
         try? modelContext.save()
