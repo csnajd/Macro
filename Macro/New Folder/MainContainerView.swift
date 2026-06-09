@@ -51,39 +51,34 @@ struct MainContainerView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            // Floating tab bar
+            // MARK: - Tab Bar (matches design: equal thirds, icon+label, active highlight)
             HStack(spacing: 0) {
                 ForEach(RassahTab.allCases, id: \.self) { tab in
-                    Spacer()
                     Button {
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
                             selectedTab = tab
                         }
                     } label: {
-                        VStack(spacing: 4) {
+                        VStack(spacing: 5) {
                             Image(systemName: tab.icon)
-                                .font(.system(size: 20))
-                                .foregroundColor(selectedTab == tab ? Color("light brown") : Color("brown").opacity(0.4))
+                                .font(.system(size: 22, weight: selectedTab == tab ? .semibold : .regular))
+                                .foregroundColor(selectedTab == tab ? Color("light brown") : Color("brown").opacity(0.35))
+                                .frame(width: 44, height: 28)
                             Text(lang.t(tab.labelKey))
-                                .font(.system(size: 10, weight: selectedTab == tab ? .semibold : .regular))
-                                .foregroundColor(selectedTab == tab ? Color("light brown") : Color("brown").opacity(0.4))
+                                .font(.system(size: 11, weight: selectedTab == tab ? .semibold : .regular))
+                                .foregroundColor(selectedTab == tab ? Color("light brown") : Color("brown").opacity(0.35))
                         }
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 8)
+                        .padding(.vertical, 10)
                     }
-                    Spacer()
                 }
             }
-            .padding(.horizontal, 12)
-            .padding(.top, 10)
-            .padding(.bottom, safeAreaBottomPadding + 4)
+            .padding(.horizontal, 8)
+            .padding(.bottom, safeAreaBottomPadding)
             .background(
-                RoundedRectangle(cornerRadius: 100)
-                    .fill(Color("white"))
-                    .shadow(color: Color("brown").opacity(0.06), radius: 16, x: 0, y: -4)
+                Color("white")
+                    .shadow(color: Color("brown").opacity(0.07), radius: 20, x: 0, y: -6)
             )
-            .padding(.horizontal, 24)
-            .padding(.bottom, 6)
         }
         .ignoresSafeArea(.keyboard, edges: .bottom)
         .sheet(isPresented: $showProfile) {
@@ -95,12 +90,12 @@ struct MainContainerView: View {
 
     private var safeAreaBottomPadding: CGFloat {
         guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-              let window = windowScene.windows.first else { return 12 }
-        return window.safeAreaInsets.bottom > 0 ? 0 : 12
+              let window = windowScene.windows.first else { return 16 }
+        return window.safeAreaInsets.bottom > 0 ? window.safeAreaInsets.bottom : 16
     }
 }
 
-// MARK: - Profile Avatar Button (used inside each screen's header)
+// MARK: - Profile Avatar Button
 struct ProfileAvatarButton: View {
     @Environment(AppStore.self) private var store
     let action: () -> Void

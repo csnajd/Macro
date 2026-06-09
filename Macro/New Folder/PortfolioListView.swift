@@ -32,7 +32,6 @@ public struct PortfolioListView: View {
         DiscoverableStock(symbol: "2082.SR", name: "ACWA Power",          category: "Popular"),
         DiscoverableStock(symbol: "4003.SR", name: "Extra",               category: "Popular"),
         DiscoverableStock(symbol: "2280.SR", name: "Almarai",             category: "Popular"),
-
         DiscoverableStock(symbol: "1120.SR", name: "Al Rajhi Bank",       category: "Banking"),
         DiscoverableStock(symbol: "1180.SR", name: "SNB (AlAhli)",        category: "Banking"),
         DiscoverableStock(symbol: "1150.SR", name: "Alinma Bank",         category: "Banking"),
@@ -40,7 +39,6 @@ public struct PortfolioListView: View {
         DiscoverableStock(symbol: "1060.SR", name: "SAIB",                category: "Banking"),
         DiscoverableStock(symbol: "1020.SR", name: "Bank AlBilad",        category: "Banking"),
         DiscoverableStock(symbol: "1030.SR", name: "Saudi Investment",    category: "Banking"),
-
         DiscoverableStock(symbol: "2222.SR", name: "Saudi Aramco",        category: "Energy"),
         DiscoverableStock(symbol: "5110.SR", name: "Saudi Electricity",   category: "Energy"),
         DiscoverableStock(symbol: "2082.SR", name: "ACWA Power",          category: "Energy"),
@@ -48,20 +46,17 @@ public struct PortfolioListView: View {
         DiscoverableStock(symbol: "2020.SR", name: "SAFCO / SABIC AN",    category: "Energy"),
         DiscoverableStock(symbol: "2310.SR", name: "Sipchem",             category: "Energy"),
         DiscoverableStock(symbol: "2060.SR", name: "Tasnee",              category: "Energy"),
-
         DiscoverableStock(symbol: "4300.SR", name: "Dar Al Arkan",        category: "Real Estate"),
         DiscoverableStock(symbol: "4090.SR", name: "Taiba Investments",   category: "Real Estate"),
         DiscoverableStock(symbol: "4150.SR", name: "Arriyadh Development",category: "Real Estate"),
         DiscoverableStock(symbol: "4250.SR", name: "Jabal Omar",          category: "Real Estate"),
         DiscoverableStock(symbol: "4190.SR", name: "Jarir Marketing",     category: "Real Estate"),
-
         DiscoverableStock(symbol: "2280.SR", name: "Almarai",             category: "Consumer"),
         DiscoverableStock(symbol: "4003.SR", name: "Extra",               category: "Consumer"),
         DiscoverableStock(symbol: "4005.SR", name: "Anan Care (Cenomi)",  category: "Consumer"),
         DiscoverableStock(symbol: "4200.SR", name: "Aldrees Transport",   category: "Consumer"),
         DiscoverableStock(symbol: "6001.SR", name: "Halwani Bros",        category: "Consumer"),
         DiscoverableStock(symbol: "4040.SR", name: "SAPTCO",              category: "Consumer"),
-
         DiscoverableStock(symbol: "4009.SR", name: "Saudi German Health", category: "Health"),
         DiscoverableStock(symbol: "4013.SR", name: "Dr. Sulaiman AlHabib",category: "Health"),
         DiscoverableStock(symbol: "2070.SR", name: "Dallah Healthcare",   category: "Health"),
@@ -94,7 +89,7 @@ public struct PortfolioListView: View {
 
     public var body: some View {
         ZStack(alignment: .bottom) {
-            Color("white").ignoresSafeArea()
+            Color(red: 247/255, green: 246/255, blue: 242/255).ignoresSafeArea()
 
             VStack(spacing: 0) {
 
@@ -111,12 +106,33 @@ public struct PortfolioListView: View {
                 }
                 .padding(.horizontal, 24)
                 .padding(.top, 16)
+                .padding(.bottom, 4)
 
-                StatHeaderView(
-                    totalInvested: totalCostBasis,
-                    totalGain: totalCurrentValue - totalCostBasis
-                )
+                // MARK: - Stat header
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(lang.t("stat.totalInvested"))
+                            .font(.system(size: 12))
+                            .foregroundColor(Color("brown").opacity(0.5))
+                        Text("\(Int(totalCostBasis).formatted()) \(lang.t("unit.sar"))")
+                            .font(.system(size: 22, weight: .bold))
+                            .foregroundColor(Color("purple"))
+                    }
+                    Spacer()
+                    VStack(alignment: .trailing, spacing: 4) {
+                        Text(lang.t("stat.totalGain"))
+                            .font(.system(size: 12))
+                            .foregroundColor(Color("brown").opacity(0.5))
+                        Text("\(Money.sar(totalCurrentValue - totalCostBasis)) \(lang.t("unit.sar"))")
+                            .font(.system(size: 22, weight: .bold))
+                            .foregroundColor((totalCurrentValue - totalCostBasis) >= 0 ? Color("dark green") : Color("burgindy"))
+                    }
+                }
+                .padding(.horizontal, 24)
+                .padding(.top, 16)
+                .padding(.bottom, 12)
 
+                // MARK: - Holdings list
                 List {
                     if isSearchDrawerExpanded {
                         VStack(spacing: 12) {
@@ -148,14 +164,11 @@ public struct PortfolioListView: View {
                                             .padding(.vertical, 12)
                                     }
                                     ForEach(Array(store.searchResults.enumerated()), id: \.offset) { _, item in
-                                        Button {
-                                            attemptBuy(item.symbol)
-                                        } label: {
+                                        Button { attemptBuy(item.symbol) } label: {
                                             HStack {
                                                 VStack(alignment: .leading, spacing: 4) {
                                                     Text(store.getReadableName(for: item.symbol))
-                                                        .bold()
-                                                        .foregroundColor(Color("brown"))
+                                                        .bold().foregroundColor(Color("brown"))
                                                     Text(item.symbol)
                                                         .font(.system(size: 13))
                                                         .foregroundColor(Color("brown").opacity(0.6))
@@ -164,10 +177,8 @@ public struct PortfolioListView: View {
                                                 Image(systemName: "plus.circle.fill")
                                                     .foregroundColor(Color("light brown"))
                                             }
-                                            .padding(.vertical, 12)
-                                            .padding(.horizontal, 16)
-                                            .background(Color("white"))
-                                            .cornerRadius(12)
+                                            .padding(.vertical, 12).padding(.horizontal, 16)
+                                            .background(Color("white")).cornerRadius(12)
                                         }
                                     }
                                 }
@@ -184,19 +195,15 @@ public struct PortfolioListView: View {
                                                     Text(lang.t("category.\(category)"))
                                                         .font(.system(size: 12, weight: selectedCategory == category ? .semibold : .regular))
                                                         .foregroundColor(selectedCategory == category ? Color("white") : Color("brown"))
-                                                        .padding(.horizontal, 14)
-                                                        .padding(.vertical, 6)
+                                                        .padding(.horizontal, 14).padding(.vertical, 6)
                                                         .background(selectedCategory == category ? Color("brown") : Color("white"))
                                                         .clipShape(Capsule())
                                                 }
                                             }
                                         }
                                     }
-
                                     ForEach(Array(categorizedDiscoverableStocks.enumerated()), id: \.offset) { _, stock in
-                                        Button {
-                                            attemptBuy(stock.symbol)
-                                        } label: {
+                                        Button { attemptBuy(stock.symbol) } label: {
                                             InlineDiscoverableRow(stock: stock)
                                         }
                                         .buttonStyle(PlainButtonStyle())
@@ -226,15 +233,13 @@ public struct PortfolioListView: View {
                         .listRowSeparator(.hidden)
                     } else {
                         ForEach(positions) { position in
-                            Button {
-                                sellPosition = position
-                            } label: {
+                            Button { sellPosition = position } label: {
                                 HoldingRow(position: position)
                             }
                             .buttonStyle(PlainButtonStyle())
                             .listRowBackground(Color.clear)
                             .listRowSeparator(.hidden)
-                            .listRowInsets(EdgeInsets(top: 6, leading: 24, bottom: 6, trailing: 24))
+                            .listRowInsets(EdgeInsets(top: 5, leading: 24, bottom: 5, trailing: 24))
                             .swipeActions(edge: .trailing) {
                                 Button(role: .destructive) {
                                     pendingRemoval = position
@@ -246,7 +251,7 @@ public struct PortfolioListView: View {
                     }
 
                     Color.clear
-                        .frame(height: 190)
+                        .frame(height: 160)
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
                 }
@@ -254,27 +259,30 @@ public struct PortfolioListView: View {
                 .background(Color.clear)
             }
 
+            // MARK: - Add stock button (matches design: full width, prominent)
             Button {
                 withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
                     isSearchDrawerExpanded.toggle()
                     if !isSearchDrawerExpanded { store.searchText = "" }
                 }
             } label: {
-                HStack(spacing: 8) {
+                HStack(spacing: 10) {
                     Image(systemName: isSearchDrawerExpanded ? "chevron.up" : "plus")
+                        .font(.system(size: 16, weight: .semibold))
                     Text(isSearchDrawerExpanded
                          ? lang.t("portfolio.closePanel")
                          : lang.t("portfolio.addInline"))
-                        .bold()
+                        .font(.system(size: 16, weight: .bold))
                 }
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 18)
                 .background(isSearchDrawerExpanded ? Color("brown") : Color("light brown"))
-                .cornerRadius(12)
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+                .shadow(color: Color("light brown").opacity(0.3), radius: 12, x: 0, y: 4)
             }
             .padding(.horizontal, 24)
-            .padding(.bottom, 120)
+            .padding(.bottom, 100)
         }
         .task(id: heldSymbolsKey) {
             await store.refreshLivePrices(for: positions.map { $0.symbol })
@@ -304,17 +312,12 @@ public struct PortfolioListView: View {
                 if let p = pendingRemoval { removeHolding(p) }
                 pendingRemoval = nil
             }
-            Button(lang.t("remove.cancel"), role: .cancel) {
-                pendingRemoval = nil
-            }
+            Button(lang.t("remove.cancel"), role: .cancel) { pendingRemoval = nil }
         } message: {
             Text(lang.t("remove.confirmBody"))
         }
-        // ✅ Sign-in alert with "Sign In" button that opens profile
         .alert(lang.t("signin.requiredTitle"), isPresented: $showSignInAlert) {
-            Button("Sign In") {
-                showProfile = true
-            }
+            Button("Sign In") { showProfile = true }
             Button(lang.t("signin.notNow"), role: .cancel) {}
         } message: {
             Text(lang.t("signin.requiredBody"))
@@ -326,23 +329,18 @@ public struct PortfolioListView: View {
     }
 
     private func attemptBuy(_ symbol: String) {
-        guard store.isSignedIn else {
-            showSignInAlert = true
-            return
-        }
+        guard store.isSignedIn else { showSignInAlert = true; return }
         buySymbol = BuyTarget(symbol: symbol)
     }
 
     private func removeHolding(_ position: PortfolioMath.Position) {
         let toDelete = transactions.filter { $0.symbol == position.symbol }
-        for tx in toDelete {
-            modelContext.delete(tx)
-        }
+        for tx in toDelete { modelContext.delete(tx) }
         try? modelContext.save()
     }
 }
 
-// MARK: - Inline Row
+// MARK: - Inline Discoverable Row
 struct InlineDiscoverableRow: View {
     let stock: DiscoverableStock
     var body: some View {
@@ -350,7 +348,7 @@ struct InlineDiscoverableRow: View {
             Text(String(stock.name.prefix(3)).uppercased())
                 .font(.system(size: 11, weight: .bold))
                 .foregroundColor(Color("brown"))
-                .frame(width: 36, height: 36)
+                .frame(width: 38, height: 38)
                 .background(Color("dark baige"))
                 .clipShape(Circle())
             VStack(alignment: .leading, spacing: 2) {
@@ -363,17 +361,17 @@ struct InlineDiscoverableRow: View {
             }
             Spacer()
             Image(systemName: "plus.circle.fill")
-                .font(.system(size: 18))
+                .font(.system(size: 20))
                 .foregroundColor(Color("light brown"))
         }
-        .padding(.vertical, 8)
-        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .padding(.horizontal, 14)
         .background(Color("white"))
-        .cornerRadius(10)
+        .cornerRadius(12)
     }
 }
 
-// MARK: - Holding Row
+// MARK: - Holding Row (matches design: name+shares left, value+gain right, colored gain bar)
 struct HoldingRow: View {
     let position: PortfolioMath.Position
     @Environment(AppStore.self) private var store
@@ -383,34 +381,67 @@ struct HoldingRow: View {
         let price = store.livePrice(for: position.symbol) ?? position.averageBuyPrice
         let currentValue = price * Double(position.quantity)
         let gain = currentValue - position.costBasis
+        let gainPct = position.costBasis > 0 ? (gain / position.costBasis) * 100 : 0
 
-        HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(store.getReadableName(for: position.symbol))
-                    .font(.system(size: 17, weight: .bold))
-                    .foregroundColor(Color("brown"))
-                Text(lang.shares(position.quantity))
-                    .font(.system(size: 13))
-                    .foregroundColor(.gray)
+        VStack(spacing: 0) {
+            HStack(alignment: .center) {
+                // Left: avatar + name/shares
+                HStack(spacing: 12) {
+                    Text(String(store.getReadableName(for: position.symbol).prefix(2)).uppercased())
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundColor(Color("brown"))
+                        .frame(width: 44, height: 44)
+                        .background(Color("dark baige"))
+                        .clipShape(Circle())
+
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(store.getReadableName(for: position.symbol))
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(Color("brown"))
+                        Text(lang.shares(position.quantity))
+                            .font(.system(size: 12))
+                            .foregroundColor(Color("brown").opacity(0.45))
+                    }
+                }
+
+                Spacer()
+
+                // Right: value + gain%
+                VStack(alignment: .trailing, spacing: 3) {
+                    Text("\(Int(currentValue).formatted()) \(lang.t("unit.sar"))")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(Color("brown"))
+                    Text(Money.percent(gainPct))
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(gain >= 0 ? Color("dark green") : Color("burgindy"))
+                }
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(Color("brown").opacity(0.25))
+                    .padding(.leading, 6)
             }
-            Spacer()
-            VStack(alignment: .trailing, spacing: 4) {
-                Text("\(Int(currentValue)) \(lang.t("unit.sar"))")
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(Color("brown"))
-                Text("\(Money.sar(gain)) \(lang.t("unit.sar"))")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundColor(gain >= 0 ? Color("dark green") : Color("burgindy"))
+            .padding(.horizontal, 16)
+            .padding(.top, 14)
+            .padding(.bottom, 10)
+
+            // Colored gain bar at bottom of card
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(Color("dark baige").opacity(0.3))
+                        .frame(height: 3)
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(gain >= 0 ? Color("dark green") : Color("burgindy"))
+                        .frame(width: geo.size.width * CGFloat(min(abs(gainPct) / 20.0, 1.0)), height: 3)
+                }
             }
-            Image(systemName: "chevron.right")
-                .font(.system(size: 12, weight: .bold))
-                .foregroundColor(Color("brown").opacity(0.3))
-                .padding(.leading, 4)
+            .frame(height: 3)
+            .padding(.horizontal, 16)
+            .padding(.bottom, 12)
         }
-        .padding(.vertical, 14)
-        .padding(.horizontal, 16)
         .background(Color("white"))
-        .cornerRadius(14)
-        .shadow(color: Color.black.opacity(0.01), radius: 6, x: 0, y: 3)
+        .cornerRadius(16)
+        .shadow(color: Color("brown").opacity(0.04), radius: 8, x: 0, y: 3)
     }
 }
