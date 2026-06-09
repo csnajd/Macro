@@ -2,58 +2,66 @@
 //  ProfileView.swift
 //  Macro
 //
-
+ 
 import SwiftUI
 import SwiftData
 import AuthenticationServices
 import PhotosUI
-
+ 
 struct ProfileView: View {
     @Environment(AppStore.self) private var store
     @Environment(LanguageManager.self) private var lang
     @Environment(\.dismiss) private var dismiss
     @Query private var transactions: [Transaction]
-
+ 
     @State private var selectedPhoto: PhotosPickerItem? = nil
     @State private var profileImageData: Data? = nil
     @State private var signInError = false
     @State private var showSignOutConfirm = false
-
-    private var savedImageData: Data? {
-        UserDefaults.standard.data(forKey: "profileImageData")
-    }
-
+ 
+    // MARK: - Derived values (all scoped to the signed-in user; 0 for guests)
+ 
     private var unrealizedGain: Double {
-        let positions = PortfolioMath.allPositions(from: transactions)
+        let positions = PortfolioMath.allPositions(from: transactions, userID: store.currentUserID)
         return positions.reduce(0.0) { sum, pos in
             let price = store.livePrice(for: pos.symbol) ?? pos.averageBuyPrice
             return sum + (price * Double(pos.quantity)) - pos.costBasis
         }
     }
-
+ 
     private var totalBricks: Int {
         store.totalDynamicBricks(unrealizedGain: unrealizedGain)
     }
-
+ 
     private var totalInvested: Double {
-        PortfolioMath.totalCostBasis(from: transactions)
+        PortfolioMath.totalCostBasis(from: transactions, userID: store.currentUserID)
     }
-
+ 
     private var totalGain: Double {
-        unrealizedGain + PortfolioMath.totalRealizedGain(from: transactions)
+        unrealizedGain + PortfolioMath.totalRealizedGain(from: transactions, userID: store.currentUserID)
     }
-
+ 
     private var currentStageNumber: Int {
         HouseStages.currentStage(forBricks: totalBricks).stageNumber
     }
-
+ 
+    // MARK: - Display name
+    // Real name if we have one. "Investor" fallback if signed in but Apple
+    // didn't return a name. "Guest" only when not signed in.
+    private var displayName: String {
+        if store.isSignedIn {
+            return store.userName.isEmpty ? lang.t("profile.fallbackName") : store.userName
+        }
+        return lang.t("profile.guest")
+    }
+ 
     var body: some View {
         ZStack {
             Color("baige").ignoresSafeArea()
-
+ 
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(spacing: 0) {
-
+ 
                     // MARK: - Header
                     HStack {
                         Button { dismiss() } label: {
@@ -62,7 +70,7 @@ struct ProfileView: View {
                                 .foregroundColor(Color("brown").opacity(0.3))
                         }
                         Spacer()
-                        Text("Profile")
+                        Text(lang.t("profile.title"))
                             .font(.system(size: 17, weight: .bold))
                             .foregroundColor(Color("brown"))
                         Spacer()
@@ -71,12 +79,12 @@ struct ProfileView: View {
                     .padding(.horizontal, 24)
                     .padding(.top, 20)
                     .padding(.bottom, 28)
-
+ 
                     // MARK: - Avatar
                     PhotosPicker(selection: $selectedPhoto, matching: .images) {
                         ZStack(alignment: .bottomTrailing) {
                             Group {
-                                if let data = profileImageData ?? savedImageData,
+                                if let data = profileImageData,
                                    let uiImage = UIImage(data: data) {
                                     Image(uiImage: uiImage)
                                         .resizable()
@@ -94,53 +102,57 @@ struct ProfileView: View {
                             .clipShape(Circle())
                             .overlay(Circle().stroke(Color("white"), lineWidth: 3))
                             .shadow(color: Color("brown").opacity(0.1), radius: 8, x: 0, y: 4)
-
-                            // Camera badge
-                            ZStack {
-                                Circle()
-                                    .fill(Color("light brown"))
-                                    .frame(width: 28, height: 28)
-                                Image(systemName: "camera.fill")
-                                    .font(.system(size: 12))
-                                    .foregroundColor(.white)
+ 
+                            // Camera badge — only meaningful when signed in
+                            if store.isSignedIn {
+                                ZStack {
+                                    Circle()
+                                        .fill(Color("light brown"))
+                                        .frame(width: 28, height: 28)
+                                    Image(systemName: "camera.fill")
+                                        .font(.system(size: 12))
+                                        .foregroundColor(.white)
+                                }
+                                .offset(x: 2, y: 2)
                             }
-                            .offset(x: 2, y: 2)
                         }
                     }
+                    .disabled(!store.isSignedIn)
                     .onChange(of: selectedPhoto) { _, newItem in
+                        guard store.isSignedIn else { return }
                         Task {
                             if let data = try? await newItem?.loadTransferable(type: Data.self) {
                                 profileImageData = data
-                                UserDefaults.standard.set(data, forKey: "profileImageData")
+                                store.setProfileImageData(data)
                             }
                         }
                     }
                     .onAppear {
-                        profileImageData = savedImageData
+                        profileImageData = store.profileImageData()
                     }
-
+ 
                     // Name
-                    Text(store.isSignedIn && !store.userName.isEmpty ? store.userName : "Guest")
+                    Text(displayName)
                         .font(.system(size: 22, weight: .bold))
                         .foregroundColor(Color("brown"))
                         .padding(.top, 14)
-
+ 
                     if store.isSignedIn {
-                        Label("Signed in with Apple", systemImage: "applelogo")
+                        Label(lang.t("profile.signedInApple"), systemImage: "applelogo")
                             .font(.system(size: 12))
                             .foregroundColor(Color("brown").opacity(0.45))
                             .padding(.top, 4)
                     } else {
-                        Text("Browsing as guest")
+                        Text(lang.t("profile.browsingGuest"))
                             .font(.system(size: 12))
                             .foregroundColor(Color("brown").opacity(0.4))
                             .padding(.top, 4)
                     }
-
+ 
                     // MARK: - Stats Row
                     HStack(spacing: 0) {
                         ProfileStatPill(
-                            label: "Bricks",
+                            label: lang.t("profile.bricks"),
                             value: "\(totalBricks)",
                             icon: "brick"
                         )
@@ -148,17 +160,17 @@ struct ProfileView: View {
                             .fill(Color("dark baige").opacity(0.4))
                             .frame(width: 1, height: 36)
                         ProfileStatPill(
-                            label: "Invested",
+                            label: lang.t("profile.invested"),
                             value: "\(Int(totalInvested))",
-                            suffix: "SAR"
+                            suffix: lang.t("unit.sar")
                         )
                         Rectangle()
                             .fill(Color("dark baige").opacity(0.4))
                             .frame(width: 1, height: 36)
                         ProfileStatPill(
-                            label: "Gain",
+                            label: lang.t("profile.gain"),
                             value: Money.sar(totalGain),
-                            suffix: "SAR",
+                            suffix: lang.t("unit.sar"),
                             valueColor: totalGain >= 0 ? Color("dark green") : Color("burgindy")
                         )
                     }
@@ -167,15 +179,16 @@ struct ProfileView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 18))
                     .padding(.horizontal, 24)
                     .padding(.top, 28)
-
+ 
                     // MARK: - Current Estate Level
                     VStack(spacing: 14) {
                         HStack {
                             VStack(alignment: .leading, spacing: 2) {
-                                Text("Your Estate")
+                                Text(lang.t("profile.yourEstate"))
                                     .font(.system(size: 14, weight: .bold))
                                     .foregroundColor(Color("brown"))
-                                Text("Level \(currentStageNumber) of \(HouseStages.all.count)")
+                                Text(String(format: lang.t("profile.levelOf"),
+                                            currentStageNumber, HouseStages.all.count))
                                     .font(.system(size: 12))
                                     .foregroundColor(Color("brown").opacity(0.5))
                             }
@@ -185,7 +198,7 @@ struct ProfileView: View {
                                     .resizable()
                                     .scaledToFit()
                                     .frame(width: 14, height: 14)
-                                Text("\(totalBricks) bricks")
+                                Text("\(totalBricks) \(lang.t("profile.bricksSuffix"))")
                                     .font(.system(size: 12, weight: .semibold))
                                     .foregroundColor(Color("light brown"))
                             }
@@ -194,7 +207,7 @@ struct ProfileView: View {
                             .background(Color("light brown").opacity(0.12))
                             .clipShape(Capsule())
                         }
-
+ 
                         Image("level\(currentStageNumber)")
                             .resizable()
                             .scaledToFit()
@@ -207,11 +220,10 @@ struct ProfileView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 18))
                     .padding(.horizontal, 24)
                     .padding(.top, 14)
-
+ 
                     // MARK: - Sign In / Sign Out Card
                     VStack(spacing: 14) {
                         if store.isSignedIn {
-                            // Signed in state
                             HStack(spacing: 12) {
                                 ZStack {
                                     Circle()
@@ -222,22 +234,22 @@ struct ProfileView: View {
                                         .foregroundColor(Color("dark green"))
                                 }
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text("Account linked")
+                                    Text(lang.t("profile.accountLinked"))
                                         .font(.system(size: 14, weight: .semibold))
                                         .foregroundColor(Color("brown"))
-                                    Text("Your progress is saved to your Apple ID")
+                                    Text(lang.t("profile.savedToApple"))
                                         .font(.system(size: 12))
                                         .foregroundColor(Color("brown").opacity(0.5))
                                 }
                                 Spacer()
                             }
-
+ 
                             Button {
                                 showSignOutConfirm = true
                             } label: {
                                 HStack(spacing: 8) {
                                     Image(systemName: "rectangle.portrait.and.arrow.right")
-                                    Text("Sign Out")
+                                    Text(lang.t("profile.signOut"))
                                 }
                                 .font(.system(size: 15, weight: .semibold))
                                 .foregroundColor(Color("burgindy"))
@@ -246,9 +258,8 @@ struct ProfileView: View {
                                 .background(Color("burgindy").opacity(0.08))
                                 .clipShape(RoundedRectangle(cornerRadius: 12))
                             }
-
+ 
                         } else {
-                            // Guest state
                             VStack(spacing: 10) {
                                 HStack(spacing: 12) {
                                     ZStack {
@@ -260,16 +271,16 @@ struct ProfileView: View {
                                             .foregroundColor(Color("light brown"))
                                     }
                                     VStack(alignment: .leading, spacing: 2) {
-                                        Text("Sign in to add stocks")
+                                        Text(lang.t("profile.signInToAdd"))
                                             .font(.system(size: 14, weight: .semibold))
                                             .foregroundColor(Color("brown"))
-                                        Text("Browsing is open — adding stocks needs an account")
+                                        Text(lang.t("profile.browseOpenNote"))
                                             .font(.system(size: 12))
                                             .foregroundColor(Color("brown").opacity(0.5))
                                     }
                                     Spacer()
                                 }
-
+ 
                                 SignInWithAppleButton(.signIn) { request in
                                     request.requestedScopes = [.fullName, .email]
                                 } onCompletion: { result in
@@ -280,6 +291,7 @@ struct ProfileView: View {
                                             appleUserID: credential.user,
                                             name: credential.fullName?.givenName ?? ""
                                         )
+                                        profileImageData = store.profileImageData()
                                         signInError = false
                                     case .failure:
                                         signInError = true
@@ -288,7 +300,7 @@ struct ProfileView: View {
                                 .signInWithAppleButtonStyle(.black)
                                 .frame(height: 50)
                                 .clipShape(RoundedRectangle(cornerRadius: 12))
-
+ 
                                 if signInError {
                                     Text(lang.t("signin.failed"))
                                         .font(.system(size: 12))
@@ -303,16 +315,16 @@ struct ProfileView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 18))
                     .padding(.horizontal, 24)
                     .padding(.top, 14)
-
+ 
                     // MARK: - App Info
                     VStack(spacing: 0) {
-                        ProfileInfoRow(icon: "lock.shield", label: "All data stored on your device only")
+                        ProfileInfoRow(icon: "lock.shield", label: lang.t("profile.info.local"))
                         Divider().padding(.leading, 54)
-                        ProfileInfoRow(icon: "chart.bar", label: "For tracking and education only")
+                        ProfileInfoRow(icon: "chart.bar", label: lang.t("profile.info.education"))
                         Divider().padding(.leading, 54)
-                        ProfileInfoRow(icon: "building.columns", label: "Saudi Tadawul + Global markets")
+                        ProfileInfoRow(icon: "building.columns", label: lang.t("profile.info.markets"))
                         Divider().padding(.leading, 54)
-                        ProfileInfoRow(icon: "bell", label: "Optional local notifications only")
+                        ProfileInfoRow(icon: "bell", label: lang.t("profile.info.notifications"))
                     }
                     .background(Color("white"))
                     .clipShape(RoundedRectangle(cornerRadius: 18))
@@ -322,26 +334,29 @@ struct ProfileView: View {
                 }
             }
         }
-        .confirmationDialog("Sign out?", isPresented: $showSignOutConfirm, titleVisibility: .visible) {
-            Button("Sign Out", role: .destructive) {
+        .confirmationDialog(lang.t("profile.signOutTitle"),
+                            isPresented: $showSignOutConfirm,
+                            titleVisibility: .visible) {
+            Button(lang.t("profile.signOut"), role: .destructive) {
                 store.signOut()
+                profileImageData = nil
             }
-            Button("Cancel", role: .cancel) {}
+            Button(lang.t("common.cancel"), role: .cancel) {}
         } message: {
-            Text("Your data stays on this device. You can sign back in anytime.")
+            Text(lang.t("profile.signOutBody"))
         }
     }
 }
-
+ 
 // MARK: - Subcomponents
-
+ 
 private struct ProfileStatPill: View {
     let label: String
     let value: String
     var suffix: String? = nil
     var icon: String? = nil
     var valueColor: Color = Color("brown")
-
+ 
     var body: some View {
         VStack(spacing: 5) {
             if let iconName = icon {
@@ -373,11 +388,11 @@ private struct ProfileStatPill: View {
         .frame(maxWidth: .infinity)
     }
 }
-
+ 
 private struct ProfileInfoRow: View {
     let icon: String
     let label: String
-
+ 
     var body: some View {
         HStack(spacing: 14) {
             ZStack {
@@ -397,3 +412,4 @@ private struct ProfileInfoRow: View {
         .padding(.vertical, 14)
     }
 }
+ 

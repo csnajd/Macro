@@ -16,11 +16,11 @@ struct AnalyticsView: View {
     @State private var showHouseProgressionSheet = false
 
     private var positions: [PortfolioMath.Position] {
-        PortfolioMath.allPositions(from: transactions)
+        PortfolioMath.allPositions(from: transactions, userID: store.currentUserID)
     }
 
     private var totalCostBasis: Double {
-        PortfolioMath.totalCostBasis(from: transactions)
+        PortfolioMath.totalCostBasis(from: transactions, userID: store.currentUserID)
     }
 
     private var totalCurrentValue: Double {

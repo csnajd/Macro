@@ -34,7 +34,7 @@ struct SummaryView: View {
     @State private var frequency: SummaryFrequency = SummaryFrequency.current
 
     private var positions: [PortfolioMath.Position] {
-        PortfolioMath.allPositions(from: transactions)
+        PortfolioMath.allPositions(from: transactions, userID: store.currentUserID)
     }
 
     private var livePriceMap: [String: Double] {
@@ -74,7 +74,7 @@ struct SummaryView: View {
         await aiService.generateSummary(
             positions: positions,
             livePrices: livePriceMap,
-            realizedThisPeriod: PortfolioMath.totalRealizedGain(from: transactions),
+            realizedThisPeriod: PortfolioMath.totalRealizedGain(from: transactions, userID: store.currentUserID),
             bricksEarned: store.brickCount,
             baselineValue: baseline?.totalValue,
             baselineBricks: baseline?.brickCount ?? 0,

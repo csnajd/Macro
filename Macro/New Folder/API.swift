@@ -1,12 +1,13 @@
 //
-//   API.swift
-//   Macro
+//  API.swift
+//  Macro
 //
-
+ 
 import Foundation
 import Observation
 import AuthenticationServices
-
+import UIKit
+ 
 // MARK: - Core Structural Objects
 struct Stock: Identifiable, Codable {
     var id: String { symbol }
@@ -17,13 +18,13 @@ struct Stock: Identifiable, Codable {
     let changePercent: Double
     let currency: String?
     let category: StockCategory
-
+ 
     var sharesHeld: Int = 0
     var averageBuyPrice: Double = 0.0
-
+ 
     var totalCostBasis: Double { Double(sharesHeld) * averageBuyPrice }
     var totalCurrentValue: Double { Double(sharesHeld) * price }
-
+ 
     enum CodingKeys: String, CodingKey {
         case symbol
         case name          = "longName"
@@ -32,7 +33,7 @@ struct Stock: Identifiable, Codable {
         case changePercent = "regularMarketChangePercent"
         case currency
     }
-
+ 
     init(from decoder: Decoder) throws {
         let container      = try decoder.container(keyedBy: CodingKeys.self)
         self.symbol        = try container.decode(String.self, forKey: .symbol)
@@ -45,7 +46,7 @@ struct Stock: Identifiable, Codable {
         self.sharesHeld = 0
         self.averageBuyPrice = 0.0
     }
-
+ 
     init(symbol: String, name: String, price: Double, change: Double,
          changePercent: Double, currency: String, category: StockCategory,
          sharesHeld: Int = 0, averageBuyPrice: Double = 0.0) {
@@ -60,7 +61,7 @@ struct Stock: Identifiable, Codable {
         self.averageBuyPrice = averageBuyPrice
     }
 }
-
+ 
 enum StockCategory: String, CaseIterable, Codable {
     case popular = "Popular"
     case saudi   = "Saudi Market"
@@ -68,20 +69,20 @@ enum StockCategory: String, CaseIterable, Codable {
     case energy  = "Energy"
     case global  = "Global"
 }
-
+ 
 // MARK: - Yahoo Finance Response Components
 struct YahooSearchResponse: Codable { let quotes: [SearchQuote] }
-
+ 
 struct SearchQuote: Identifiable, Codable {
     var id: String { symbol }
     let symbol: String
     let shortname: String?
     let longname: String?
 }
-
+ 
 struct YahooQuoteResponse: Codable { let quoteResponse: QuoteResult }
 struct QuoteResult:        Codable { let result: [Stock]? }
-
+ 
 struct YahooChartResponse: Codable { let chart: ChartContainer }
 struct ChartContainer:     Codable { let result: [ChartResult]? }
 struct ChartResult:        Codable { let meta: ChartMeta }
@@ -92,7 +93,7 @@ struct ChartMeta: Codable {
     let chartPreviousClose: Double?
     let previousClose: Double?
 }
-
+ 
 // MARK: - AppStore
 @Observable
 @MainActor
@@ -100,107 +101,156 @@ final class AppStore {
     var portfolio:     [Stock]       = []
     var searchText:    String        = ""
     var searchResults: [SearchQuote] = []
-
+ 
     var isDevTestingActive: Bool = false
     var injectedMockBricks: Double = 0.0
-
+ 
     private let sarPerBrick: Double = 3.4
-
-    // MARK: - Auth State
-    var isSignedIn: Bool {
-        get { UserDefaults.standard.bool(forKey: "isSignedIn") }
-        set { UserDefaults.standard.set(newValue, forKey: "isSignedIn") }
+ 
+    // MARK: - Auth State (real @Observable stored properties)
+    //
+    // These are tracked by @Observable, so views re-render the instant they
+    // change. They're loaded from UserDefaults once at init and written back
+    // whenever they change. `currentUserID` is the Apple user ID and is the
+    // key everything else is namespaced under.
+ 
+    private(set) var isSignedIn: Bool
+    private(set) var currentUserID: String
+    private(set) var userName: String
+ 
+    init() {
+        let savedID = UserDefaults.standard.string(forKey: "appleUserID") ?? ""
+        self.currentUserID = savedID
+        self.isSignedIn = !savedID.isEmpty
+        self.userName = savedID.isEmpty
+            ? ""
+            : (UserDefaults.standard.string(forKey: Self.nameKey(for: savedID)) ?? "")
     }
-
-    var userName: String {
-        get { UserDefaults.standard.string(forKey: "userName") ?? "" }
-        set { UserDefaults.standard.set(newValue, forKey: "userName") }
-    }
-
+ 
+    // MARK: - Per-user UserDefaults keys
+    private static func nameKey(for userID: String)   -> String { "userName_\(userID)" }
+    private static func bricksKey(for userID: String) -> String { "lifetimeBricks_\(userID)" }
+    private static func photoKey(for userID: String)  -> String { "profileImageData_\(userID)" }
+ 
+    // MARK: - Sign in / out
     func signIn(appleUserID: String, name: String) {
-        UserDefaults.standard.set(appleUserID, forKey: "appleUserID")
-        userName = name
+        currentUserID = appleUserID
         isSignedIn = true
+        UserDefaults.standard.set(appleUserID, forKey: "appleUserID")
+ 
+        // Only overwrite the saved name if Apple actually gave us one this time
+        // (it usually only returns the name on the very first sign-in).
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty {
+            userName = trimmed
+            UserDefaults.standard.set(trimmed, forKey: Self.nameKey(for: appleUserID))
+        } else {
+            userName = UserDefaults.standard.string(forKey: Self.nameKey(for: appleUserID)) ?? ""
+        }
     }
-
+ 
     func signOut() {
-        UserDefaults.standard.removeObject(forKey: "appleUserID")
-        UserDefaults.standard.removeObject(forKey: "userName")
+        currentUserID = ""
         isSignedIn = false
         userName = ""
+        // Clear only the active-session pointer. Per-user data (bricks, name,
+        // photo, transactions) stays on disk keyed by ID, so signing back into
+        // the same account restores everything.
+        UserDefaults.standard.removeObject(forKey: "appleUserID")
+        // Clear the live in-memory price cache so a guest sees nothing.
+        portfolio = []
     }
-
+ 
     func restoreSession() {
-        guard let id = UserDefaults.standard.string(forKey: "appleUserID") else { return }
-        ASAuthorizationAppleIDProvider().getCredentialState(forUserID: id) { state, _ in
-            DispatchQueue.main.async {
-                self.isSignedIn = (state == .authorized)
+        let savedID = UserDefaults.standard.string(forKey: "appleUserID") ?? ""
+        guard !savedID.isEmpty else {
+            currentUserID = ""
+            isSignedIn = false
+            userName = ""
+            return
+        }
+        ASAuthorizationAppleIDProvider().getCredentialState(forUserID: savedID) { [weak self] state, _ in
+            Task { @MainActor in
+                guard let self else { return }
+                if state == .authorized {
+                    self.currentUserID = savedID
+                    self.isSignedIn = true
+                    self.userName = UserDefaults.standard.string(forKey: Self.nameKey(for: savedID)) ?? ""
+                } else {
+                    self.signOut()
+                }
             }
         }
     }
-
-    // MARK: - Brick State
-    var stocksAddedCount: Int {
-        get { UserDefaults.standard.integer(forKey: "stocksAddedCount") }
-        set { UserDefaults.standard.set(newValue, forKey: "stocksAddedCount") }
+ 
+    // MARK: - Profile photo (per user)
+    func profileImageData() -> Data? {
+        guard !currentUserID.isEmpty else { return nil }
+        return UserDefaults.standard.data(forKey: Self.photoKey(for: currentUserID))
     }
-
-    /// Realized bricks only (locked in from sales). Never goes down.
+ 
+    func setProfileImageData(_ data: Data) {
+        guard !currentUserID.isEmpty else { return }
+        UserDefaults.standard.set(data, forKey: Self.photoKey(for: currentUserID))
+    }
+ 
+    // MARK: - Brick State (per user)
+ 
+    /// Realized bricks only (locked in from sales). Never goes down. 0 for guests.
     var brickCount: Int {
-        get { UserDefaults.standard.integer(forKey: "lifetimeBricks") }
-        set { UserDefaults.standard.set(newValue, forKey: "lifetimeBricks") }
+        guard !currentUserID.isEmpty else { return 0 }
+        return UserDefaults.standard.integer(forKey: Self.bricksKey(for: currentUserID))
     }
-
+ 
     /// Total bricks = realized (from sales) + unrealized (from current gains).
-    /// Pass in the current unrealized gain from SwiftData positions.
+    /// Returns 0 for a guest so the whole app reads as zero when signed out.
     func totalDynamicBricks(unrealizedGain: Double) -> Int {
         if isDevTestingActive { return Int(injectedMockBricks) }
+        guard isSignedIn else { return 0 }
         let unrealizedBricks = unrealizedGain > 0 ? Int(unrealizedGain / sarPerBrick) : 0
         return brickCount + unrealizedBricks
     }
-
+ 
     /// Award bricks from a realized sale gain. Bricks are permanent once awarded.
     func awardBricks(fromRealizedGain gain: Double) {
-        guard gain > 0 else { return }
+        guard isSignedIn, !currentUserID.isEmpty, gain > 0 else { return }
         let earned = Int(gain / sarPerBrick)
         guard earned > 0 else { return }
-        brickCount += earned
+        let key = Self.bricksKey(for: currentUserID)
+        UserDefaults.standard.set(brickCount + earned, forKey: key)
     }
-
-    // Legacy — kept so HouseProgressionView compiles without changes for now.
+ 
+    // Legacy alias kept so any older view still referencing it compiles.
     var dynamicallyEarnedBricks: Int { brickCount }
-
+ 
     // MARK: - Live Price Refresh
     func refreshLivePrices(for symbols: [String]) async {
         let unique = Array(Set(symbols)).filter { !$0.isEmpty }
         guard !unique.isEmpty else { portfolio = []; return }
-
+ 
         var fresh: [Stock] = []
         for symbol in unique {
             if var live = await fetchStockFromYahoo(symbol: symbol) {
                 if let existing = portfolio.first(where: { $0.symbol == symbol }) {
                     live.sharesHeld = existing.sharesHeld
                     live.averageBuyPrice = existing.averageBuyPrice
-                } else {
-                    live.sharesHeld = 2
-                    live.averageBuyPrice = live.price * 0.5
                 }
                 fresh.append(live)
             }
         }
         portfolio = fresh
     }
-
+ 
     func livePrice(for symbol: String) -> Double? {
         guard let p = portfolio.first(where: { $0.symbol == symbol })?.price, p > 0 else { return nil }
         return p
     }
-
+ 
     // MARK: - Readable Names
     public func getReadableName(for symbol: String) -> String {
         localStockName(for: symbol)
     }
-
+ 
     private let localStockNames: [String: String] = [
         "2010.SR": "SABIC", "2222.SR": "Saudi Aramco", "7010.SR": "STC",
         "1120.SR": "Al Rajhi Bank", "1180.SR": "SNB (AlAhli)", "1150.SR": "Alinma Bank",
@@ -214,7 +264,7 @@ final class AppStore {
         "4009.SR": "Saudi German Health", "4013.SR": "Dr. Sulaiman AlHabib",
         "8010.SR": "Tawuniya", "8020.SR": "Bupa Arabia"
     ]
-
+ 
     private let localStocks: [SearchQuote] = [
         SearchQuote(symbol: "2010.SR", shortname: "SABIC",        longname: "Saudi Basic Industries"),
         SearchQuote(symbol: "2222.SR", shortname: "Aramco",       longname: "Saudi Aramco"),
@@ -240,16 +290,16 @@ final class AppStore {
         SearchQuote(symbol: "8010.SR", shortname: "Tawuniya",     longname: "Tawuniya Insurance"),
         SearchQuote(symbol: "8020.SR", shortname: "Bupa",         longname: "Bupa Arabia")
     ]
-
+ 
     private func localStockName(for symbol: String) -> String {
         localStockNames[symbol] ?? symbol
     }
-
+ 
     // MARK: - Search
     func performSearch(query: String) async {
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard q.count >= 2 else { searchResults = []; return }
-
+ 
         func score(_ stock: SearchQuote) -> Int {
             let fields = [
                 stock.symbol.lowercased(),
@@ -262,28 +312,27 @@ final class AppStore {
             if fields.contains(where: { $0.contains(q) }) { return 1 }
             return 0
         }
-
+ 
         searchResults = localStocks
             .map { (stock: $0, score: score($0)) }
             .filter { $0.score > 0 }
             .sorted { $0.score > $1.score }
             .map { $0.stock }
     }
-
+ 
     // MARK: - Add Stock
     func addStock(symbol: String) async -> Stock? {
         let clean = symbol.trimmingCharacters(in: .whitespacesAndNewlines)
         searchText    = ""
         searchResults = []
-
+ 
         if let existing = portfolio.first(where: { $0.symbol == clean }) { return existing }
-
+ 
         if let liveStock = await fetchStockFromYahoo(symbol: clean) {
             portfolio.append(liveStock)
-            stocksAddedCount += 1
             return liveStock
         }
-
+ 
         let fallback = Stock(
             symbol: clean,
             name: localStockName(for: clean),
@@ -292,10 +341,9 @@ final class AppStore {
             category: clean.hasSuffix(".SR") ? .saudi : .global
         )
         portfolio.append(fallback)
-        stocksAddedCount += 1
         return fallback
     }
-
+ 
     // MARK: - Yahoo Fetch
     private func fetchStockFromYahoo(symbol: String) async -> Stock? {
         let encoded = symbol.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? symbol

@@ -69,11 +69,11 @@ public struct PortfolioListView: View {
     }
 
     private var positions: [PortfolioMath.Position] {
-        PortfolioMath.allPositions(from: transactions)
+        PortfolioMath.allPositions(from: transactions, userID: store.currentUserID)
     }
 
     private var totalCostBasis: Double {
-        PortfolioMath.totalCostBasis(from: transactions)
+        PortfolioMath.totalCostBasis(from: transactions, userID: store.currentUserID)
     }
 
     private var totalCurrentValue: Double {
@@ -334,7 +334,11 @@ public struct PortfolioListView: View {
     }
 
     private func removeHolding(_ position: PortfolioMath.Position) {
-        let toDelete = transactions.filter { $0.symbol == position.symbol }
+        // Only delete the current user's rows for this symbol, so we never
+        // touch another account's data that happens to share a symbol.
+        let toDelete = transactions.filter {
+            $0.symbol == position.symbol && $0.userID == store.currentUserID
+        }
         for tx in toDelete { modelContext.delete(tx) }
         try? modelContext.save()
     }
