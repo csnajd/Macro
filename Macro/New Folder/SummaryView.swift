@@ -21,6 +21,8 @@ private func localizedDate(_ date: Date, format: String, lang: LanguageManager) 
 }
 
 struct SummaryView: View {
+    @Binding var showProfile: Bool // ✅ Profiles visibility link parameter
+    
     @Environment(AppStore.self) private var store
     @Environment(LanguageManager.self) private var lang
     @Environment(\.modelContext) private var modelContext
@@ -90,7 +92,13 @@ struct SummaryView: View {
                         .font(.system(size: 22, weight: .bold))
                         .foregroundColor(Color("brown"))
                     Spacer()
-                    CoinBadge()
+                    // ✅ FIXED: Side-by-side header tools setup
+                    HStack(spacing: 8) {
+                        CoinBadge()
+                        ProfileAvatarButton {
+                            showProfile = true
+                        }
+                    }
                 }
                 .padding(.horizontal, 24)
                 .padding(.top, 16)
@@ -100,9 +108,7 @@ struct SummaryView: View {
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundColor(Color("brown"))
                     Spacer()
-                    // Frequency picker: daily / weekly / biweekly / monthly.
-                    // Changing it re-schedules the notification and recomputes
-                    // the summary over the new window.
+                    
                     Menu {
                         ForEach(SummaryFrequency.allCases, id: \.self) { freq in
                             Button {
@@ -142,6 +148,7 @@ struct SummaryView: View {
                 .padding(.top, 20)
                 .padding(.bottom, 12)
 
+                // ✅ FIXED: Clean conditional tree rendering without hanging modifiers
                 if aiService.isLoading {
                     LoadingCardView()
                         .padding(.horizontal, 24)
@@ -168,8 +175,6 @@ struct SummaryView: View {
         .background(Color("white").ignoresSafeArea())
         .task(id: positions.map { $0.symbol }.sorted().joined(separator: ",")) {
             await regenerate()
-            // Make sure a notification is scheduled for the current cadence
-            // even if the user never opens the picker.
             SummaryNotificationScheduler.schedule(
                 frequency: frequency,
                 title: lang.t("notif.title"),
@@ -179,7 +184,7 @@ struct SummaryView: View {
     }
 }
 
-// MARK: - Collapsed
+// MARK: - Collapsed Card View
 private struct CollapsedCard: View {
     let summary: WeeklySummary
     @Binding var expansion: SummaryExpansion
@@ -188,12 +193,11 @@ private struct CollapsedCard: View {
 
     private var weekLabel: String {
         String(format: lang.t("summary.weekPrefix"),
-                localizedDate(summary.weekDate, format: "d MMMM", lang: lang))
+               localizedDate(summary.weekDate, format: "d MMMM", lang: lang))
     }
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 0) {
-
             Button {
                 withAnimation(.spring(response: 0.3)) { expansion = .expanded }
             } label: {
@@ -236,7 +240,7 @@ private struct CollapsedCard: View {
     }
 }
 
-// MARK: - Expanded
+// MARK: - Expanded Card View
 private struct ExpandedCard: View {
     let summary: WeeklySummary
     @Binding var expansion: SummaryExpansion
@@ -245,12 +249,11 @@ private struct ExpandedCard: View {
 
     private var weekLabel: String {
         String(format: lang.t("summary.weekPrefix"),
-                localizedDate(summary.weekDate, format: "d MMMM", lang: lang))
+               localizedDate(summary.weekDate, format: "d MMMM", lang: lang))
     }
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 0) {
-
             Button {
                 withAnimation(.spring(response: 0.3)) { expansion = .collapsed }
             } label: {
@@ -278,7 +281,6 @@ private struct ExpandedCard: View {
                     .frame(maxWidth: .infinity, alignment: .trailing)
                     .padding(.bottom, 2)
 
-                // Plain-English (or Arabic) explanation of the number.
                 Text(lang.t("summary.explainBody"))
                     .font(.system(size: 12))
                     .foregroundColor(Color("brown").opacity(0.65))
@@ -333,7 +335,7 @@ private struct ExpandedCard: View {
     }
 }
 
-// MARK: - Full Report
+// MARK: - Full Report View
 private struct FullReport: View {
     let summary: WeeklySummary
     let portfolio: [Stock]
@@ -342,12 +344,11 @@ private struct FullReport: View {
 
     private var weekLabel: String {
         String(format: lang.t("summary.weekPrefix"),
-                localizedDate(summary.weekDate, format: "d MMMM", lang: lang))
+               localizedDate(summary.weekDate, format: "d MMMM", lang: lang))
     }
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 0) {
-
             Button {
                 withAnimation(.spring(response: 0.3)) { expansion = .expanded }
             } label: {
@@ -362,8 +363,6 @@ private struct FullReport: View {
                 }
             }
 
-            // Detailed summary sentence: % change over the chosen period,
-            // positions positive, best mover's contribution. All real.
             Text(String(format: lang.t(summary.sinceStartChange >= 0 ? "summary.sentencePositive" : "summary.sentenceNegative"),
                         abs(summary.sinceStartPercent),
                         lang.t(SummaryFrequency.current.phraseKey),
@@ -377,7 +376,6 @@ private struct FullReport: View {
                 .multilineTextAlignment(.trailing)
                 .padding(.top, 8)
 
-            // محفظتك مقابل السوق — TASI حقيقي
             STitle(lang.t("summary.vsMarket"))
             VStack(spacing: 8) {
                 HStack {
@@ -414,7 +412,6 @@ private struct FullReport: View {
             .background(Color("white").opacity(0.6))
             .clipShape(RoundedRectangle(cornerRadius: 12))
 
-            // قطاعات من المحفظة الحقيقية
             if !summary.sectorPerformance.isEmpty {
                 STitle(lang.t("summary.sectorPerf"))
                 VStack(spacing: 8) {
@@ -442,7 +439,6 @@ private struct FullReport: View {
                 .clipShape(RoundedRectangle(cornerRadius: 12))
             }
 
-            // نظرة للأمام
             STitle(lang.t("summary.forwardLook"))
             Text(String(format: lang.t(summary.forwardLookKey), abs(summary.marketOutperform)))
                 .font(.system(size: 13))
@@ -479,8 +475,7 @@ private struct FullReport: View {
     }
 }
 
-// MARK: - Reusable Components
-
+// MARK: - Reusable Context View Components
 private struct MoversList: View {
     let portfolio: [Stock]
     @Environment(LanguageManager.self) private var lang
@@ -556,7 +551,6 @@ private struct NextFooter: View {
                     .font(.system(size: 12, weight: .medium))
                     .foregroundColor(Color("brown").opacity(0.5))
             }
-            // PDPL/CMA hygiene: summaries are descriptive, never advisory.
             Text(lang.t("legal.notAdvice"))
                 .font(.system(size: 11))
                 .foregroundColor(Color("brown").opacity(0.45))
@@ -576,7 +570,7 @@ private struct SparklineView: View {
                 path.move(to: CGPoint(x: 0, y: h * (1 - points[0])))
                 for (i, p) in points.enumerated() {
                     path.addLine(to: CGPoint(x: w / CGFloat(points.count - 1) * CGFloat(i),
-                                            y: h * (1 - p)))
+                                                y: h * (1 - p)))
                 }
             }
             .stroke(Color("dark green"),

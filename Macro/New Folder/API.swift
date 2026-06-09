@@ -1,6 +1,6 @@
 //
-//  API.swift
-//  Macro
+//   API.swift
+//   Macro
 //
 
 import Foundation
@@ -121,6 +121,13 @@ final class AppStore {
         UserDefaults.standard.set(appleUserID, forKey: "appleUserID")
         userName = name
         isSignedIn = true
+    }
+
+    func signOut() {
+        UserDefaults.standard.removeObject(forKey: "appleUserID")
+        UserDefaults.standard.removeObject(forKey: "userName")
+        isSignedIn = false
+        userName = ""
     }
 
     func restoreSession() {

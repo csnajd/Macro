@@ -15,11 +15,6 @@ struct HouseStage: Identifiable {
 }
 
 enum HouseStages {
-    // These thresholds match NajdiCanvasView's visual phase triggers exactly:
-    // Phase 1 (base bricks) starts at 0
-    // Phase 2 (double archways) unlocks at 50
-    // Phase 3 (upper frieze) unlocks at 150
-    // Phase 4 (complete) unlocks at 350
     static let all: [HouseStage] = [
         HouseStage(stageNumber: 1, nameKey: "stage.1.name", descriptionKey: "stage.1.desc",
                    requiredBricks: 0,   assetName: "brick"),

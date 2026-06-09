@@ -2,8 +2,6 @@
 //  MainContainerView.swift
 //  Macro
 //
-//  Created by Ghida Abdullah al-Mughamer on 31/05/2026.
-//
 
 import SwiftUI
 
@@ -33,71 +31,103 @@ struct MainContainerView: View {
     @Environment(AppStore.self) private var store
     @Environment(LanguageManager.self) private var lang
     @State private var selectedTab: RassahTab = .house
+    @State private var showProfile = false
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            Color("white")
-                .ignoresSafeArea()
+            Color("white").ignoresSafeArea()
 
             Group {
                 switch selectedTab {
                 case .summary:
-                    SummaryView()
+                    SummaryView(showProfile: $showProfile)
                 case .house:
-                    AnalyticsView()
+                    AnalyticsView(showProfile: $showProfile)
                         .environment(store)
                 case .portfolio:
-                    PortfolioListView()
+                    PortfolioListView(showProfile: $showProfile)
                         .environment(store)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            // MARK: - Bottom Floating Capsule Tab Bar Menu
+            // MARK: - Tab Bar (matches design: equal thirds, icon+label, active highlight)
             HStack(spacing: 0) {
                 ForEach(RassahTab.allCases, id: \.self) { tab in
-                    Spacer()
-
                     Button {
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
                             selectedTab = tab
                         }
                     } label: {
-                        VStack(spacing: 4) {
+                        VStack(spacing: 5) {
                             Image(systemName: tab.icon)
-                                .font(.system(size: 20))
-                                .foregroundColor(selectedTab == tab ? Color("light brown") : Color("brown").opacity(0.4))
-
+                                .font(.system(size: 22, weight: selectedTab == tab ? .semibold : .regular))
+                                .foregroundColor(selectedTab == tab ? Color("light brown") : Color("brown").opacity(0.35))
+                                .frame(width: 44, height: 28)
                             Text(lang.t(tab.labelKey))
-                                .font(.system(size: 10, weight: selectedTab == tab ? .semibold : .regular))
-                                .foregroundColor(selectedTab == tab ? Color("light brown") : Color("brown").opacity(0.4))
+                                .font(.system(size: 11, weight: selectedTab == tab ? .semibold : .regular))
+                                .foregroundColor(selectedTab == tab ? Color("light brown") : Color("brown").opacity(0.35))
                         }
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 8)
+                        .padding(.vertical, 10)
                     }
-
-                    Spacer()
                 }
             }
-            .padding(.horizontal, 12)
-            .padding(.top, 10)
-            .padding(.bottom, safeAreaBottomPadding + 4)
+            .padding(.horizontal, 8)
+            .padding(.bottom, safeAreaBottomPadding)
             .background(
-                RoundedRectangle(cornerRadius: 100)
-                    .fill(Color("white"))
-                    .shadow(color: Color("brown").opacity(0.06), radius: 16, x: 0, y: -4)
+                Color("white")
+                    .shadow(color: Color("brown").opacity(0.07), radius: 20, x: 0, y: -6)
             )
-            .padding(.horizontal, 24)
-            .padding(.bottom, 6)
         }
         .ignoresSafeArea(.keyboard, edges: .bottom)
+        .sheet(isPresented: $showProfile) {
+            ProfileView()
+                .environment(store)
+                .environment(lang)
+        }
     }
 
     private var safeAreaBottomPadding: CGFloat {
         guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-              let window = windowScene.windows.first else {
-            return 12
+              let window = windowScene.windows.first else { return 16 }
+        return window.safeAreaInsets.bottom > 0 ? window.safeAreaInsets.bottom : 16
+    }
+}
+
+// MARK: - Profile Avatar Button
+struct ProfileAvatarButton: View {
+    @Environment(AppStore.self) private var store
+    let action: () -> Void
+
+    private var savedImageData: Data? {
+        UserDefaults.standard.data(forKey: "profileImageData")
+    }
+
+    var body: some View {
+        Button(action: action) {
+            Group {
+                if let data = savedImageData, let uiImage = UIImage(data: data) {
+                    Image(uiImage: uiImage)
+                        .resizable()
+                        .scaledToFill()
+                } else {
+                    ZStack {
+                        Color("dark baige")
+                        Image(systemName: store.isSignedIn ? "person.fill" : "person.badge.plus")
+                            .font(.system(size: 14))
+                            .foregroundColor(Color("brown").opacity(0.6))
+                    }
+                }
+            }
+            .frame(width: 34, height: 34)
+            .clipShape(Circle())
+            .overlay(
+                Circle().stroke(
+                    store.isSignedIn ? Color("light brown").opacity(0.5) : Color("brown").opacity(0.2),
+                    lineWidth: 1.5
+                )
+            )
         }
-        return window.safeAreaInsets.bottom > 0 ? 0 : 12
     }
 }
