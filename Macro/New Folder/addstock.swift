@@ -1,8 +1,6 @@
 //
-//   addstock.swift
-//   Macro
-//
-//   Created by Ghida Abdullah al-Mughamer on 25/05/2026.
+//  addstock.swift
+//  Macro
 //
 
 import SwiftUI
@@ -35,38 +33,39 @@ public struct AddStockView: View {
     // Tapping a stock sets this; it drives the buy sheet. id == symbol so each
     // distinct stock builds a fresh sheet with the correct value.
     @State private var buyTarget: BuyTarget? = nil
+    @State private var showSignInAlert = false
 
     private let categories = ["Popular", "Banking", "Energy", "Real Estate", "Consumer", "Health"]
 
     // Preset list of top Saudi Market (Tadawul) equities grouped by sector.
     private let discoverableStocks = [
-        DiscoverableStock(symbol: "2010.SR", name: "SABIC", category: "Popular"),
-        DiscoverableStock(symbol: "2222.SR", name: "Saudi Aramco", category: "Popular"),
-        DiscoverableStock(symbol: "7010.SR", name: "STC", category: "Popular"),
-        DiscoverableStock(symbol: "4003.SR", name: "Extra", category: "Popular"),
-        DiscoverableStock(symbol: "2280.SR", name: "Almarai", category: "Popular"),
+        DiscoverableStock(symbol: "2010.SR", name: "SABIC",             category: "Popular"),
+        DiscoverableStock(symbol: "2222.SR", name: "Saudi Aramco",      category: "Popular"),
+        DiscoverableStock(symbol: "7010.SR", name: "STC",               category: "Popular"),
+        DiscoverableStock(symbol: "4003.SR", name: "Extra",             category: "Popular"),
+        DiscoverableStock(symbol: "2280.SR", name: "Almarai",           category: "Popular"),
 
-        DiscoverableStock(symbol: "1120.SR", name: "Al Rajhi Bank", category: "Banking"),
-        DiscoverableStock(symbol: "1180.SR", name: "SNB (AlAhli)", category: "Banking"),
-        DiscoverableStock(symbol: "1150.SR", name: "Alinma Bank", category: "Banking"),
-        DiscoverableStock(symbol: "1050.SR", name: "Saudi Fransi", category: "Banking"),
+        DiscoverableStock(symbol: "1120.SR", name: "Al Rajhi Bank",    category: "Banking"),
+        DiscoverableStock(symbol: "1180.SR", name: "SNB (AlAhli)",     category: "Banking"),
+        DiscoverableStock(symbol: "1150.SR", name: "Alinma Bank",      category: "Banking"),
+        DiscoverableStock(symbol: "1050.SR", name: "Saudi Fransi",     category: "Banking"),
 
-        DiscoverableStock(symbol: "2222.SR", name: "Saudi Aramco", category: "Energy"),
+        DiscoverableStock(symbol: "2222.SR", name: "Saudi Aramco",      category: "Energy"),
         DiscoverableStock(symbol: "5110.SR", name: "Saudi Electricity", category: "Energy"),
-        DiscoverableStock(symbol: "2082.SR", name: "ACWA Power", category: "Energy"),
-        DiscoverableStock(symbol: "4290.SR", name: "Aldrees", category: "Energy"),
+        DiscoverableStock(symbol: "2082.SR", name: "ACWA Power",        category: "Energy"),
+        DiscoverableStock(symbol: "4290.SR", name: "Aldrees",           category: "Energy"),
 
-        DiscoverableStock(symbol: "4300.SR", name: "Dar Al Arkan", category: "Real Estate"),
-        DiscoverableStock(symbol: "4250.SR", name: "Jabal Omar", category: "Real Estate"),
-        DiscoverableStock(symbol: "4190.SR", name: "Jarir Marketing", category: "Real Estate"),
+        DiscoverableStock(symbol: "4300.SR", name: "Dar Al Arkan",      category: "Real Estate"),
+        DiscoverableStock(symbol: "4250.SR", name: "Jabal Omar",        category: "Real Estate"),
+        DiscoverableStock(symbol: "4190.SR", name: "Jarir Marketing",   category: "Real Estate"),
 
-        DiscoverableStock(symbol: "2280.SR", name: "Almarai", category: "Consumer"),
-        DiscoverableStock(symbol: "4003.SR", name: "Extra", category: "Consumer"),
-        DiscoverableStock(symbol: "6001.SR", name: "Halwani Bros", category: "Consumer"),
+        DiscoverableStock(symbol: "2280.SR", name: "Almarai",           category: "Consumer"),
+        DiscoverableStock(symbol: "4003.SR", name: "Extra",             category: "Consumer"),
+        DiscoverableStock(symbol: "6001.SR", name: "Halwani Bros",      category: "Consumer"),
 
         DiscoverableStock(symbol: "4013.SR", name: "Dr. Sulaiman AlHabib", category: "Health"),
-        DiscoverableStock(symbol: "8010.SR", name: "Tawuniya", category: "Health"),
-        DiscoverableStock(symbol: "8020.SR", name: "Bupa Arabia", category: "Health")
+        DiscoverableStock(symbol: "8010.SR", name: "Tawuniya",          category: "Health"),
+        DiscoverableStock(symbol: "8020.SR", name: "Bupa Arabia",       category: "Health")
     ]
 
     private var categorizedDiscoverableStocks: [DiscoverableStock] {
@@ -203,16 +202,25 @@ public struct AddStockView: View {
                 }
             }
         }
-        // The proper buy flow: quantity / price / date, real Transaction model.
         .sheet(item: $buyTarget) { target in
             BuyDetailSheet(symbol: target.symbol)
                 .environment(store)
                 .environment(lang)
         }
+        // ✅ GUEST GATE: Shows alert if user tries to tap "+" without logging in first
+        .alert(lang.t("signin.requiredTitle"), isPresented: $showSignInAlert) {
+            Button(lang.t("signin.notNow"), role: .cancel) {}
+        } message: {
+            Text(lang.t("signin.requiredBody"))
+        }
     }
 
-    // ✅ FIXED: Instantly sets buy target without any guest sign-in check loops!
+    // ✅ FIXED: Checks authentication status dynamically before opening purchase workflows
     private func attemptBuy(_ symbol: String) {
+        guard store.isSignedIn else {
+            showSignInAlert = true
+            return
+        }
         buyTarget = BuyTarget(symbol: symbol)
     }
 }

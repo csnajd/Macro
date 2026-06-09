@@ -2,34 +2,27 @@
 //  AnalyticsView.swift
 //  Macro
 //
-//  Created by Ghida Abdullah al-Mughamer on 31/05/2026.
-//
 
 import SwiftUI
 import SwiftData
 
 struct AnalyticsView: View {
+    @Binding var showProfile: Bool
+
     @Environment(AppStore.self) private var store
     @Environment(LanguageManager.self) private var lang
     @Query private var transactions: [Transaction]
 
     @State private var showHouseProgressionSheet = false
 
-    // MARK: - Derived portfolio numbers (single source of truth)
-
-    // Current holdings derived from the transaction event log.
     private var positions: [PortfolioMath.Position] {
         PortfolioMath.allPositions(from: transactions)
     }
 
-    // What the user paid for shares still held.
     private var totalCostBasis: Double {
         PortfolioMath.totalCostBasis(from: transactions)
     }
 
-    // Current market value of held shares, using live prices where available,
-    // falling back to cost basis per-holding while a price is still loading
-    // (so the user never sees a scary 0 SAR).
     private var totalCurrentValue: Double {
         positions.reduce(0.0) { sum, pos in
             let price = store.livePrice(for: pos.symbol) ?? pos.averageBuyPrice
@@ -37,7 +30,6 @@ struct AnalyticsView: View {
         }
     }
 
-    // Unrealized gain = current value − cost basis.
     private var unrealizedGain: Double {
         totalCurrentValue - totalCostBasis
     }
@@ -46,38 +38,32 @@ struct AnalyticsView: View {
         totalCostBasis > 0 ? (unrealizedGain / totalCostBasis) * 100 : 0.0
     }
 
-    // MARK: - House upgrade progress (driven by lifetime bricks)
+    private var totalBricks: Int {
+        store.totalDynamicBricks(unrealizedGain: unrealizedGain)
+    }
 
     private var isEstateComplete: Bool {
-        HouseStages.nextStage(forBricks: store.brickCount) == nil
+        HouseStages.nextStage(forBricks: totalBricks) == nil
     }
 
     private var upgradeProgress: Double {
-        HouseStages.progress(forBricks: store.brickCount)
+        HouseStages.progress(forBricks: totalBricks)
     }
 
     private var upgradeProgressLabel: String {
-        let remaining = HouseStages.bricksToNext(forBricks: store.brickCount)
-        if remaining <= 0 {
-            return lang.t("upgrade.builtFull")
-        }
-        // lang.bricks() returns the grammatically correct phrase for any count
-        // (Arabic noun forms change at 1 / 2 / 3–10 / 11+).
+        let remaining = HouseStages.bricksToNext(forBricks: totalBricks)
+        if remaining <= 0 { return lang.t("upgrade.builtFull") }
         return String(format: lang.t("upgrade.bricksToNext"), lang.bricks(remaining))
     }
 
     var body: some View {
         ZStack {
-            Color(red: 247/255, green: 246/255, blue: 242/255)
-                .ignoresSafeArea()
+            Color(red: 247/255, green: 246/255, blue: 242/255).ignoresSafeArea()
 
             VStack(spacing: 0) {
 
-                // MARK: - Utility Header
+                // MARK: - Header with profile button
                 HStack {
-                    // Tapping the profile icon instantly toggles the app
-                    // language (Arabic ⇄ English). The small "ع/En" hint shows
-                    // which language tapping will switch TO.
                     Button {
                         lang.toggle()
                     } label: {
@@ -94,13 +80,19 @@ struct AnalyticsView: View {
                         .background(Color("light brown").opacity(0.15))
                         .clipShape(Capsule())
                     }
+
                     Spacer()
-                    CoinBadge()
+
+                    // Bricks badge + profile button side by side
+                    HStack(spacing: 8) {
+                        CoinBadge()
+                        ProfileAvatarButton(action: { showProfile = true })
+                    }
                 }
                 .padding(.horizontal, 28)
                 .padding(.top, 12)
 
-                // MARK: - Main Stat Cards
+                // MARK: - Stat Cards
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 6) {
                         Text(lang.t("stat.totalInvested"))
@@ -125,7 +117,7 @@ struct AnalyticsView: View {
 
                 Spacer()
 
-                // MARK: - Central Wheel
+                // MARK: - Wheel
                 ZStack {
                     Circle()
                         .stroke(Color("white"), lineWidth: 26)
@@ -142,7 +134,8 @@ struct AnalyticsView: View {
                             ForEach(0..<slices.count, id: \.self) { index in
                                 let slice = slices[index]
                                 Circle()
-                                    .trim(from: slice.startPercent, to: max(slice.startPercent, slice.endPercent - 0.04))
+                                    .trim(from: slice.startPercent,
+                                          to: max(slice.startPercent, slice.endPercent - 0.04))
                                     .stroke(colorForIndex(index),
                                             style: StrokeStyle(lineWidth: 26, lineCap: .round))
                             }
@@ -163,7 +156,6 @@ struct AnalyticsView: View {
                             .foregroundColor(Color("brown").opacity(0.5))
                             .tracking(0.8)
                             .padding(.top, 1)
-
                         HStack(spacing: 2) {
                             Text(Money.percent(gainPercentage))
                             Image(systemName: gainPercentage >= 0 ? "arrow.up.right" : "arrow.down.right")
@@ -177,8 +169,7 @@ struct AnalyticsView: View {
 
                 Spacer()
 
-                // MARK: - Interactive Upgrade Action Panel
-                // Real progress toward the next house stage, driven by bricks.
+                // MARK: - Upgrade Panel
                 Button {
                     showHouseProgressionSheet = true
                 } label: {
@@ -197,11 +188,9 @@ struct AnalyticsView: View {
                             Text(isEstateComplete ? lang.t("upgrade.complete") : lang.t("upgrade.nextIn"))
                                 .font(.system(size: 14, weight: .bold))
                                 .foregroundColor(Color("brown"))
-
                             Text(upgradeProgressLabel)
                                 .font(.system(size: 12))
                                 .foregroundColor(Color("brown").opacity(0.6))
-
                             GeometryReader { geo in
                                 ZStack(alignment: .leading) {
                                     RoundedRectangle(cornerRadius: 100)
@@ -229,10 +218,10 @@ struct AnalyticsView: View {
                 }
                 .buttonStyle(PlainButtonStyle())
                 .padding(.horizontal, 24)
-                .padding(.bottom, 102)
+                // ✅ FIXED: enough space above tab bar
+                .padding(.bottom, 120)
             }
         }
-        // Fetch live prices for everything held when this screen appears.
         .task(id: heldSymbolsKey) {
             await store.refreshLivePrices(for: positions.map { $0.symbol })
         }
@@ -242,7 +231,6 @@ struct AnalyticsView: View {
         }
     }
 
-    // Stable key so .task re-runs when the set of held symbols changes.
     private var heldSymbolsKey: String {
         positions.map { $0.symbol }.sorted().joined(separator: ",")
     }
@@ -252,7 +240,6 @@ struct AnalyticsView: View {
         let endPercent: Double
     }
 
-    // Wheel slices are sized by each holding's share of current market value.
     private func computeDynamicSlices() -> [WheelSlice] {
         guard totalCurrentValue > 0 else { return [] }
         var list: [WheelSlice] = []
@@ -261,16 +248,14 @@ struct AnalyticsView: View {
             let price = store.livePrice(for: pos.symbol) ?? pos.averageBuyPrice
             let value = price * Double(pos.quantity)
             let fraction = value / totalCurrentValue
-            let start = acc
-            let end = acc + fraction
-            list.append(WheelSlice(startPercent: start, endPercent: end))
-            acc = end
+            list.append(WheelSlice(startPercent: acc, endPercent: acc + fraction))
+            acc += fraction
         }
         return list
     }
 
     private func colorForIndex(_ index: Int) -> Color {
-        let strictColors = ["green", "light green", "dark green", "light brown", "burgindy", "purple", "light purple"]
-        return Color(strictColors[index % strictColors.count])
+        let colors = ["green", "light green", "dark green", "light brown", "burgindy", "purple", "light purple"]
+        return Color(colors[index % colors.count])
     }
 }

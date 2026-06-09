@@ -2,13 +2,13 @@
 //  PortfolioListView.swift
 //  Macro
 //
-//  Created by Ghida Abdullah al-Mughamer on 02/06/2026.
-//
 
 import SwiftUI
 import SwiftData
 
 public struct PortfolioListView: View {
+    @Binding var showProfile: Bool
+
     @Environment(AppStore.self) private var store
     @Environment(LanguageManager.self) private var lang
     @Environment(\.modelContext) private var modelContext
@@ -18,51 +18,52 @@ public struct PortfolioListView: View {
     @State private var buySymbol: BuyTarget? = nil
     @State private var sellPosition: PortfolioMath.Position? = nil
     @State private var pendingRemoval: PortfolioMath.Position? = nil
+    @State private var showSignInAlert = false
 
     @Query private var transactions: [Transaction]
 
     private let categories = ["Popular", "Banking", "Energy", "Real Estate", "Consumer", "Health"]
 
     private let discoverableStocks = [
-        DiscoverableStock(symbol: "2222.SR", name: "Saudi Aramco",     category: "Popular"),
-        DiscoverableStock(symbol: "2010.SR", name: "SABIC",            category: "Popular"),
-        DiscoverableStock(symbol: "7010.SR", name: "STC",              category: "Popular"),
-        DiscoverableStock(symbol: "1120.SR", name: "Al Rajhi Bank",    category: "Popular"),
-        DiscoverableStock(symbol: "2082.SR", name: "ACWA Power",       category: "Popular"),
-        DiscoverableStock(symbol: "4003.SR", name: "Extra",            category: "Popular"),
-        DiscoverableStock(symbol: "2280.SR", name: "Almarai",          category: "Popular"),
+        DiscoverableStock(symbol: "2222.SR", name: "Saudi Aramco",        category: "Popular"),
+        DiscoverableStock(symbol: "2010.SR", name: "SABIC",               category: "Popular"),
+        DiscoverableStock(symbol: "7010.SR", name: "STC",                 category: "Popular"),
+        DiscoverableStock(symbol: "1120.SR", name: "Al Rajhi Bank",       category: "Popular"),
+        DiscoverableStock(symbol: "2082.SR", name: "ACWA Power",          category: "Popular"),
+        DiscoverableStock(symbol: "4003.SR", name: "Extra",               category: "Popular"),
+        DiscoverableStock(symbol: "2280.SR", name: "Almarai",             category: "Popular"),
 
-        DiscoverableStock(symbol: "1120.SR", name: "Al Rajhi Bank",    category: "Banking"),
-        DiscoverableStock(symbol: "1180.SR", name: "SNB (AlAhli)",     category: "Banking"),
-        DiscoverableStock(symbol: "1150.SR", name: "Alinma Bank",      category: "Banking"),
-        DiscoverableStock(symbol: "1050.SR", name: "Saudi Fransi",     category: "Banking"),
-        DiscoverableStock(symbol: "1060.SR", name: "SAIB",             category: "Banking"),
-        DiscoverableStock(symbol: "1020.SR", name: "Bank AlBilad",     category: "Banking"),
-        DiscoverableStock(symbol: "1030.SR", name: "Saudi Investment", category: "Banking"),
+        DiscoverableStock(symbol: "1120.SR", name: "Al Rajhi Bank",       category: "Banking"),
+        DiscoverableStock(symbol: "1180.SR", name: "SNB (AlAhli)",        category: "Banking"),
+        DiscoverableStock(symbol: "1150.SR", name: "Alinma Bank",         category: "Banking"),
+        DiscoverableStock(symbol: "1050.SR", name: "Saudi Fransi",        category: "Banking"),
+        DiscoverableStock(symbol: "1060.SR", name: "SAIB",                category: "Banking"),
+        DiscoverableStock(symbol: "1020.SR", name: "Bank AlBilad",        category: "Banking"),
+        DiscoverableStock(symbol: "1030.SR", name: "Saudi Investment",    category: "Banking"),
 
-        DiscoverableStock(symbol: "2222.SR", name: "Saudi Aramco",     category: "Energy"),
-        DiscoverableStock(symbol: "5110.SR", name: "Saudi Electricity",category: "Energy"),
-        DiscoverableStock(symbol: "2082.SR", name: "ACWA Power",       category: "Energy"),
-        DiscoverableStock(symbol: "4290.SR", name: "Aldrees",          category: "Energy"),
-        DiscoverableStock(symbol: "2020.SR", name: "SAFCO / SABIC AN", category: "Energy"),
-        DiscoverableStock(symbol: "2310.SR", name: "Sipchem",          category: "Energy"),
-        DiscoverableStock(symbol: "2060.SR", name: "Tasnee",           category: "Energy"),
+        DiscoverableStock(symbol: "2222.SR", name: "Saudi Aramco",        category: "Energy"),
+        DiscoverableStock(symbol: "5110.SR", name: "Saudi Electricity",   category: "Energy"),
+        DiscoverableStock(symbol: "2082.SR", name: "ACWA Power",          category: "Energy"),
+        DiscoverableStock(symbol: "4290.SR", name: "Aldrees",             category: "Energy"),
+        DiscoverableStock(symbol: "2020.SR", name: "SAFCO / SABIC AN",    category: "Energy"),
+        DiscoverableStock(symbol: "2310.SR", name: "Sipchem",             category: "Energy"),
+        DiscoverableStock(symbol: "2060.SR", name: "Tasnee",              category: "Energy"),
 
-        DiscoverableStock(symbol: "4300.SR", name: "Dar Al Arkan",     category: "Real Estate"),
-        DiscoverableStock(symbol: "4090.SR", name: "Taiba Investments",category: "Real Estate"),
-        DiscoverableStock(symbol: "4150.SR", name: "Arriyadh Development", category: "Real Estate"),
-        DiscoverableStock(symbol: "4250.SR", name: "Jabal Omar",       category: "Real Estate"),
-        DiscoverableStock(symbol: "4190.SR", name: "Jarir Marketing",  category: "Real Estate"),
+        DiscoverableStock(symbol: "4300.SR", name: "Dar Al Arkan",        category: "Real Estate"),
+        DiscoverableStock(symbol: "4090.SR", name: "Taiba Investments",   category: "Real Estate"),
+        DiscoverableStock(symbol: "4150.SR", name: "Arriyadh Development",category: "Real Estate"),
+        DiscoverableStock(symbol: "4250.SR", name: "Jabal Omar",          category: "Real Estate"),
+        DiscoverableStock(symbol: "4190.SR", name: "Jarir Marketing",     category: "Real Estate"),
 
-        DiscoverableStock(symbol: "2280.SR", name: "Almarai",          category: "Consumer"),
-        DiscoverableStock(symbol: "4003.SR", name: "Extra",            category: "Consumer"),
-        DiscoverableStock(symbol: "4005.SR", name: "Anan Care (Cenomi)",category: "Consumer"),
-        DiscoverableStock(symbol: "4200.SR", name: "Aldrees Transport",category: "Consumer"),
-        DiscoverableStock(symbol: "6001.SR", name: "Halwani Bros",     category: "Consumer"),
-        DiscoverableStock(symbol: "4040.SR", name: "SAPTCO",           category: "Consumer"),
+        DiscoverableStock(symbol: "2280.SR", name: "Almarai",             category: "Consumer"),
+        DiscoverableStock(symbol: "4003.SR", name: "Extra",               category: "Consumer"),
+        DiscoverableStock(symbol: "4005.SR", name: "Anan Care (Cenomi)",  category: "Consumer"),
+        DiscoverableStock(symbol: "4200.SR", name: "Aldrees Transport",   category: "Consumer"),
+        DiscoverableStock(symbol: "6001.SR", name: "Halwani Bros",        category: "Consumer"),
+        DiscoverableStock(symbol: "4040.SR", name: "SAPTCO",              category: "Consumer"),
 
         DiscoverableStock(symbol: "4009.SR", name: "Saudi German Health", category: "Health"),
-        DiscoverableStock(symbol: "4013.SR", name: "Dr. Sulaiman AlHabib", category: "Health"),
+        DiscoverableStock(symbol: "4013.SR", name: "Dr. Sulaiman AlHabib",category: "Health"),
         DiscoverableStock(symbol: "2070.SR", name: "Dallah Healthcare",   category: "Health"),
         DiscoverableStock(symbol: "8010.SR", name: "Tawuniya Insurance",  category: "Health"),
         DiscoverableStock(symbol: "8020.SR", name: "Bupa Arabia",         category: "Health")
@@ -87,19 +88,26 @@ public struct PortfolioListView: View {
         }
     }
 
-    public init() {}
+    public init(showProfile: Binding<Bool>) {
+        self._showProfile = showProfile
+    }
 
     public var body: some View {
         ZStack(alignment: .bottom) {
             Color("white").ignoresSafeArea()
 
             VStack(spacing: 0) {
+
+                // MARK: - Header
                 HStack(alignment: .center) {
                     Text(lang.t("portfolio.title"))
                         .font(.system(size: 28, weight: .bold))
                         .foregroundColor(Color("brown"))
                     Spacer()
-                    CoinBadge()
+                    HStack(spacing: 8) {
+                        CoinBadge()
+                        ProfileAvatarButton(action: { showProfile = true })
+                    }
                 }
                 .padding(.horizontal, 24)
                 .padding(.top, 16)
@@ -145,13 +153,21 @@ public struct PortfolioListView: View {
                                         } label: {
                                             HStack {
                                                 VStack(alignment: .leading, spacing: 4) {
-                                                    Text(store.getReadableName(for: item.symbol)).bold().foregroundColor(Color("brown"))
-                                                    Text(item.symbol).font(.system(size: 13)).foregroundColor(Color("brown").opacity(0.6))
+                                                    Text(store.getReadableName(for: item.symbol))
+                                                        .bold()
+                                                        .foregroundColor(Color("brown"))
+                                                    Text(item.symbol)
+                                                        .font(.system(size: 13))
+                                                        .foregroundColor(Color("brown").opacity(0.6))
                                                 }
                                                 Spacer()
-                                                Image(systemName: "plus.circle.fill").foregroundColor(Color("light brown"))
+                                                Image(systemName: "plus.circle.fill")
+                                                    .foregroundColor(Color("light brown"))
                                             }
-                                            .padding(.vertical, 12).padding(.horizontal, 16).background(Color("white")).cornerRadius(12)
+                                            .padding(.vertical, 12)
+                                            .padding(.horizontal, 16)
+                                            .background(Color("white"))
+                                            .cornerRadius(12)
                                         }
                                     }
                                 }
@@ -161,13 +177,17 @@ public struct PortfolioListView: View {
                                         HStack(spacing: 8) {
                                             ForEach(categories, id: \.self) { category in
                                                 Button {
-                                                    withAnimation(.spring(response: 0.2, dampingFraction: 0.8)) { selectedCategory = category }
+                                                    withAnimation(.spring(response: 0.2, dampingFraction: 0.8)) {
+                                                        selectedCategory = category
+                                                    }
                                                 } label: {
                                                     Text(lang.t("category.\(category)"))
                                                         .font(.system(size: 12, weight: selectedCategory == category ? .semibold : .regular))
                                                         .foregroundColor(selectedCategory == category ? Color("white") : Color("brown"))
-                                                        .padding(.horizontal, 14).padding(.vertical, 6)
-                                                        .background(selectedCategory == category ? Color("brown") : Color("white")).clipShape(Capsule())
+                                                        .padding(.horizontal, 14)
+                                                        .padding(.vertical, 6)
+                                                        .background(selectedCategory == category ? Color("brown") : Color("white"))
+                                                        .clipShape(Capsule())
                                                 }
                                             }
                                         }
@@ -176,7 +196,9 @@ public struct PortfolioListView: View {
                                     ForEach(Array(categorizedDiscoverableStocks.enumerated()), id: \.offset) { _, stock in
                                         Button {
                                             attemptBuy(stock.symbol)
-                                        } label: { InlineDiscoverableRow(stock: stock) }
+                                        } label: {
+                                            InlineDiscoverableRow(stock: stock)
+                                        }
                                         .buttonStyle(PlainButtonStyle())
                                     }
                                 }
@@ -240,7 +262,10 @@ public struct PortfolioListView: View {
             } label: {
                 HStack(spacing: 8) {
                     Image(systemName: isSearchDrawerExpanded ? "chevron.up" : "plus")
-                    Text(isSearchDrawerExpanded ? lang.t("portfolio.closePanel") : lang.t("portfolio.addInline")).bold()
+                    Text(isSearchDrawerExpanded
+                         ? lang.t("portfolio.closePanel")
+                         : lang.t("portfolio.addInline"))
+                        .bold()
                 }
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
@@ -285,14 +310,26 @@ public struct PortfolioListView: View {
         } message: {
             Text(lang.t("remove.confirmBody"))
         }
+        // ✅ Sign-in alert with "Sign In" button that opens profile
+        .alert(lang.t("signin.requiredTitle"), isPresented: $showSignInAlert) {
+            Button("Sign In") {
+                showProfile = true
+            }
+            Button(lang.t("signin.notNow"), role: .cancel) {}
+        } message: {
+            Text(lang.t("signin.requiredBody"))
+        }
     }
 
     private var heldSymbolsKey: String {
         positions.map { $0.symbol }.sorted().joined(separator: ",")
     }
 
-    // ✅ FIXED: Instantly executes buy target presentation sheet with zero login gates
     private func attemptBuy(_ symbol: String) {
+        guard store.isSignedIn else {
+            showSignInAlert = true
+            return
+        }
         buySymbol = BuyTarget(symbol: symbol)
     }
 
@@ -305,23 +342,38 @@ public struct PortfolioListView: View {
     }
 }
 
+// MARK: - Inline Row
 struct InlineDiscoverableRow: View {
     let stock: DiscoverableStock
     var body: some View {
         HStack(spacing: 12) {
-            Text(String(stock.name.prefix(3)).uppercased()).font(.system(size: 11, weight: .bold)).foregroundColor(Color("brown"))
-                .frame(width: 36, height: 36).background(Color("dark baige")).clipShape(Circle())
+            Text(String(stock.name.prefix(3)).uppercased())
+                .font(.system(size: 11, weight: .bold))
+                .foregroundColor(Color("brown"))
+                .frame(width: 36, height: 36)
+                .background(Color("dark baige"))
+                .clipShape(Circle())
             VStack(alignment: .leading, spacing: 2) {
-                Text(stock.name).font(.system(size: 14, weight: .semibold)).foregroundColor(Color("brown"))
-                Text(stock.symbol).font(.system(size: 11)).foregroundColor(Color("brown").opacity(0.5))
+                Text(stock.name)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(Color("brown"))
+                Text(stock.symbol)
+                    .font(.system(size: 11))
+                    .foregroundColor(Color("brown").opacity(0.5))
             }
             Spacer()
-            Image(systemName: "plus.circle.fill").font(.system(size: 18)).foregroundColor(Color("light brown"))
+            Image(systemName: "plus.circle.fill")
+                .font(.system(size: 18))
+                .foregroundColor(Color("light brown"))
         }
-        .padding(.vertical, 8).padding(.horizontal, 12).background(Color("white")).cornerRadius(10)
+        .padding(.vertical, 8)
+        .padding(.horizontal, 12)
+        .background(Color("white"))
+        .cornerRadius(10)
     }
 }
 
+// MARK: - Holding Row
 struct HoldingRow: View {
     let position: PortfolioMath.Position
     @Environment(AppStore.self) private var store
@@ -330,8 +382,7 @@ struct HoldingRow: View {
     var body: some View {
         let price = store.livePrice(for: position.symbol) ?? position.averageBuyPrice
         let currentValue = price * Double(position.quantity)
-        let costBasis = position.costBasis
-        let gain = currentValue - costBasis
+        let gain = currentValue - position.costBasis
 
         HStack {
             VStack(alignment: .leading, spacing: 4) {

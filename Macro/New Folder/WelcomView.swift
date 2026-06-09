@@ -7,17 +7,13 @@ import SwiftUI
 import AuthenticationServices
 
 public struct WelcomView: View {
-    @Binding var hasStartedApp: Bool
+    let onFinish: () -> Void
+
     @Environment(AppStore.self) private var store
     @Environment(LanguageManager.self) private var lang
 
-    @AppStorage("privacyAccepted") private var privacyAccepted = false
     @State private var animateSlogan = false
     @State private var signInError = false
-
-    public init(hasStartedApp: Binding<Bool>) {
-        self._hasStartedApp = hasStartedApp
-    }
 
     public var body: some View {
         ZStack {
@@ -52,7 +48,6 @@ public struct WelcomView: View {
 
                 Spacer()
 
-                // Brand block
                 VStack(spacing: 24) {
                     Image("brick")
                         .resizable()
@@ -77,12 +72,9 @@ public struct WelcomView: View {
 
                 Spacer(minLength: 20)
 
-                // Action buttons
                 VStack(spacing: 14) {
-                    // Get Started (no account needed)
                     Button {
-                        privacyAccepted = true
-                        hasStartedApp = true
+                        onFinish()
                     } label: {
                         Text(lang.t("welcome.getStarted"))
                             .font(.system(size: 18, weight: .semibold))
@@ -94,7 +86,6 @@ public struct WelcomView: View {
                             .shadow(color: Color("brown").opacity(0.18), radius: 8, x: 0, y: 4)
                     }
 
-                    // Sign In with Apple
                     SignInWithAppleButton(.signIn) { request in
                         request.requestedScopes = [.fullName, .email]
                     } onCompletion: { result in
@@ -105,8 +96,7 @@ public struct WelcomView: View {
                                 appleUserID: credential.user,
                                 name: credential.fullName?.givenName ?? ""
                             )
-                            privacyAccepted = true
-                            hasStartedApp = true
+                            onFinish()
                         case .failure:
                             signInError = true
                         }
@@ -129,10 +119,4 @@ public struct WelcomView: View {
         }
         .onAppear { animateSlogan = true }
     }
-}
-
-#Preview {
-    WelcomView(hasStartedApp: .constant(false))
-        .environment(AppStore())
-        .environment(LanguageManager())
 }

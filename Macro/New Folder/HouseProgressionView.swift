@@ -4,6 +4,7 @@
 //
 
 import SwiftUI
+import SwiftData
 
 struct NajdiBuildingStage: Identifiable {
     let id = UUID()
@@ -16,11 +17,10 @@ struct NajdiBuildingStage: Identifiable {
 struct HouseProgressionView: View {
     @Environment(AppStore.self) private var store
     @Environment(\.dismiss) private var dismiss
+    @Query private var transactions: [Transaction]
 
     private let sarPerBrick: Double = 3.4
-
     @State private var selectedLevelTab: Int = 1
-    @State private var isPlacingBrickAnimation: Bool = false
 
     private let stages = [
         NajdiBuildingStage(level: 1, title: "Desert Groundwork",
@@ -37,7 +37,17 @@ struct HouseProgressionView: View {
                            bricksRequired: 350)
     ]
 
-    private var totalBricks: Int { store.dynamicallyEarnedBricks }
+    private var unrealizedGain: Double {
+        let positions = PortfolioMath.allPositions(from: transactions)
+        return positions.reduce(0.0) { sum, pos in
+            let price = store.livePrice(for: pos.symbol) ?? pos.averageBuyPrice
+            return sum + (price * Double(pos.quantity)) - pos.costBasis
+        }
+    }
+
+    private var totalBricks: Int {
+        store.totalDynamicBricks(unrealizedGain: unrealizedGain)
+    }
 
     private var currentActiveStage: NajdiBuildingStage {
         stages.last(where: { totalBricks >= $0.bricksRequired }) ?? stages[0]
@@ -58,137 +68,144 @@ struct HouseProgressionView: View {
 
     var body: some View {
         ZStack {
-            Color(red: 245/255, green: 242/255, blue: 235/255)
-                .ignoresSafeArea()
+            Color(red: 245/255, green: 242/255, blue: 235/255).ignoresSafeArea()
 
             VStack(spacing: 0) {
 
-                // Header
+                // MARK: - Header
                 HStack {
                     Button { dismiss() } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: "chevron.left")
-                                .font(.system(size: 16, weight: .semibold))
-                            Text("Dashboard")
-                        }
-                        .foregroundColor(Color("brown"))
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 28))
+                            .foregroundColor(Color("brown").opacity(0.25))
                     }
                     Spacer()
                     Text("Estate Build Lab")
                         .font(.system(size: 17, weight: .bold))
                         .foregroundColor(Color("brown"))
                     Spacer()
-                    Text("🧱 \(totalBricks)")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(Color("brown"))
+                    HStack(spacing: 4) {
+                        Image("brick")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 16, height: 16)
+                        Text("\(totalBricks)")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(Color("brown"))
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(Color("light brown").opacity(0.18))
+                    .clipShape(Capsule())
                 }
                 .padding(.horizontal, 24)
-                .padding(.top, 16)
+                .padding(.top, 20)
+                .padding(.bottom, 12)
 
                 ScrollView(.vertical, showsIndicators: false) {
-                    VStack(spacing: 20) {
+                    VStack(spacing: 16) {
 
-                        let selectedStageDetails = stages.first(where: { $0.level == selectedLevelTab }) ?? stages[0]
-                        let isLevelUnlocked = totalBricks >= selectedStageDetails.bricksRequired
+                        let selectedStage = stages.first(where: { $0.level == selectedLevelTab }) ?? stages[0]
+                        let isUnlocked = totalBricks >= selectedStage.bricksRequired
                         let isCurrentlyBuilding = currentActiveStage.level == selectedLevelTab && nextStageTarget != nil
 
+                        // MARK: - House Image
                         ZStack(alignment: .topLeading) {
-                            RoundedRectangle(cornerRadius: 28)
-                                .fill(Color("white"))
-                                .shadow(color: Color("brown").opacity(0.06), radius: 16, x: 0, y: 8)
+                            Image("level\(selectedLevelTab)")
+                                .resizable()
+                                .scaledToFill()
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 240)
+                                .clipShape(RoundedRectangle(cornerRadius: 24))
+                                .saturation(isUnlocked ? 1.0 : 0.15)
+                                .blur(radius: isUnlocked ? 0 : 4)
+                                .animation(.easeInOut(duration: 0.35), value: selectedLevelTab)
 
-                            NajdiCanvasView(bricksEarned: totalBricks)
-                                .frame(height: 360)
-                                .clipShape(RoundedRectangle(cornerRadius: 28))
-                                .saturation(isLevelUnlocked ? 1.0 : 0.2)
-                                .blur(radius: isLevelUnlocked ? 0.0 : (isCurrentlyBuilding ? 1.0 : 5.0))
-
-                            if !isLevelUnlocked && !isCurrentlyBuilding {
+                            // Locked overlay
+                            if !isUnlocked {
                                 ZStack {
-                                    Color.black.opacity(0.35)
-                                    VStack(spacing: 6) {
+                                    Color.black.opacity(0.38)
+                                    VStack(spacing: 8) {
                                         Image(systemName: "lock.shield.fill")
                                             .font(.system(size: 26))
                                             .foregroundColor(.white)
-                                        Text("BLUEPRINT LOCKED")
-                                            .font(.system(size: 11, weight: .bold))
-                                            .tracking(1.5)
+                                        Text("LOCKED")
+                                            .font(.system(size: 12, weight: .black))
+                                            .tracking(2)
                                             .foregroundColor(.white)
+                                        Text("Reach \(selectedStage.bricksRequired) bricks to unlock")
+                                            .font(.system(size: 11))
+                                            .foregroundColor(.white.opacity(0.8))
                                     }
                                 }
-                                .clipShape(RoundedRectangle(cornerRadius: 28))
+                                .clipShape(RoundedRectangle(cornerRadius: 24))
                             }
 
-                            if isCurrentlyBuilding {
+                            // Building overlay
+                            if isCurrentlyBuilding && isUnlocked {
                                 VStack {
                                     Spacer()
                                     HStack {
                                         VStack(alignment: .leading, spacing: 4) {
                                             HStack(spacing: 6) {
                                                 ProgressView().tint(.white)
-                                                Text("MASONS BUILDING...")
+                                                Text("BUILDING...")
                                                     .font(.system(size: 11, weight: .bold))
                                                     .foregroundColor(.white)
                                             }
-                                            Text("\(Int(levelProgressPercentage * 100))% Layered")
-                                                .font(.system(size: 16, weight: .black))
+                                            Text("\(Int(levelProgressPercentage * 100))% Complete")
+                                                .font(.system(size: 15, weight: .black))
                                                 .foregroundColor(.white)
                                         }
                                         Spacer()
-                                        Image(systemName: "hammer.fill")
-                                            .font(.system(size: 24))
-                                            .foregroundColor(.white)
-                                            .rotationEffect(.degrees(isPlacingBrickAnimation ? -20 : 20))
-                                            .animation(.easeInOut(duration: 0.5).repeatForever(autoreverses: true),
-                                                       value: isPlacingBrickAnimation)
-                                            .onAppear { isPlacingBrickAnimation = true }
                                     }
-                                    .padding(20)
+                                    .padding(16)
                                     .background(.ultraThinMaterial)
                                 }
-                                .clipShape(RoundedRectangle(cornerRadius: 28))
+                                .clipShape(RoundedRectangle(cornerRadius: 24))
                             }
 
+                            // Phase badge
                             HStack {
                                 Text("PHASE 0\(selectedLevelTab)")
                                     .font(.system(size: 11, weight: .black))
                                     .foregroundColor(.white)
-                                    .padding(.horizontal, 14)
-                                    .padding(.vertical, 6)
-                                    .background(isLevelUnlocked
-                                                ? Color("dark green")
-                                                : (isCurrentlyBuilding ? Color("light brown") : Color.gray))
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 5)
+                                    .background(
+                                        isUnlocked ? Color("dark green") :
+                                        (isCurrentlyBuilding ? Color("light brown") : Color.gray)
+                                    )
                                     .clipShape(Capsule())
                                 Spacer()
                             }
-                            .padding(16)
+                            .padding(14)
                         }
-                        .frame(height: 360)
-                        .padding(.top, 10)
+                        .frame(height: 240)
 
-                        // Level tabs
-                        HStack(spacing: 12) {
+                        // MARK: - Level Tabs
+                        HStack(spacing: 10) {
                             ForEach(stages) { stage in
                                 let isActive = selectedLevelTab == stage.level
-                                let isUnlocked = totalBricks >= stage.bricksRequired
+                                let isTabUnlocked = totalBricks >= stage.bricksRequired
                                 Button { selectedLevelTab = stage.level } label: {
                                     VStack(spacing: 4) {
                                         Text("Lvl \(stage.level)")
-                                            .font(.system(size: 14, weight: .black))
-                                        Image(systemName: isUnlocked ? "checkmark.circle.fill" : "lock.fill")
+                                            .font(.system(size: 13, weight: .black))
+                                        Image(systemName: isTabUnlocked ? "checkmark.circle.fill" : "lock.fill")
                                             .font(.system(size: 11))
                                     }
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 10)
                                     .background(isActive ? Color("brown") : Color("white"))
-                                    .foregroundColor(isActive ? .white : (isUnlocked ? Color("brown") : .gray.opacity(0.5)))
-                                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                                    .foregroundColor(isActive ? .white : (isTabUnlocked ? Color("brown") : Color.gray.opacity(0.5)))
+                                    .clipShape(RoundedRectangle(cornerRadius: 12))
                                 }
                             }
                         }
 
-                        // Progress card
-                        VStack(spacing: 14) {
+                        // MARK: - Progress Card
+                        VStack(spacing: 12) {
                             if let next = nextStageTarget {
                                 VStack(spacing: 8) {
                                     HStack {
@@ -211,7 +228,7 @@ struct HouseProgressionView: View {
                                                 .frame(width: geo.size.width * levelProgressPercentage)
                                         }
                                     }
-                                    .frame(height: 12)
+                                    .frame(height: 10)
                                 }
 
                                 let blocksRemaining = next.bricksRequired - totalBricks
@@ -221,34 +238,40 @@ struct HouseProgressionView: View {
                                     .foregroundColor(.gray)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                             } else {
-                                Text("👑 Maximum Simulation Level Reached!")
-                                    .font(.system(size: 14, weight: .bold))
-                                    .foregroundColor(Color("dark green"))
+                                HStack(spacing: 8) {
+                                    Text("👑")
+                                        .font(.system(size: 20))
+                                    Text("Maximum Level Reached!")
+                                        .font(.system(size: 14, weight: .bold))
+                                        .foregroundColor(Color("dark green"))
+                                }
                             }
                         }
-                        .padding(20)
+                        .padding(18)
                         .background(Color("white"))
-                        .clipShape(RoundedRectangle(cornerRadius: 22))
+                        .clipShape(RoundedRectangle(cornerRadius: 20))
 
-                        // Stage description
+                        // MARK: - Stage Description
                         VStack(alignment: .leading, spacing: 6) {
-                            Text(selectedStageDetails.title.uppercased())
+                            Text(selectedStage.title.uppercased())
                                 .font(.system(size: 11, weight: .black))
                                 .foregroundColor(Color("light brown"))
-                            Text(selectedStageDetails.description)
+                            Text(selectedStage.description)
                                 .font(.system(size: 13))
                                 .foregroundColor(.gray)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(20)
+                        .padding(18)
                         .background(Color("white"))
-                        .clipShape(RoundedRectangle(cornerRadius: 22))
+                        .clipShape(RoundedRectangle(cornerRadius: 20))
                     }
                     .padding(.horizontal, 24)
                     .padding(.bottom, 32)
                 }
             }
         }
-        .navigationBarHidden(true)
+        .onAppear {
+            selectedLevelTab = currentActiveStage.level
+        }
     }
 }
