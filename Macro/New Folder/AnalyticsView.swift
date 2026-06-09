@@ -1,8 +1,3 @@
-//
-//  AnalyticsView.swift
-//  Macro
-//
-
 import SwiftUI
 import SwiftData
 
@@ -34,12 +29,21 @@ struct AnalyticsView: View {
         totalCurrentValue - totalCostBasis
     }
 
+    private var totalRealizedGain: Double {
+        PortfolioMath.totalRealizedGain(from: transactions, userID: store.currentUserID)
+    }
+
+    // MARK: - Combined Dynamic Profit Formula
+    private var totalGain: Double {
+        unrealizedGain + totalRealizedGain
+    }
+
     private var gainPercentage: Double {
         totalCostBasis > 0 ? (unrealizedGain / totalCostBasis) * 100 : 0.0
     }
 
     private var totalBricks: Int {
-        store.totalDynamicBricks(unrealizedGain: unrealizedGain)
+        store.totalDynamicBricks(totalGain: totalGain)
     }
 
     private var isEstateComplete: Bool {
@@ -65,7 +69,6 @@ struct AnalyticsView: View {
             Color(red: 247/255, green: 246/255, blue: 242/255).ignoresSafeArea()
 
             VStack(spacing: 0) {
-
                 // MARK: - Header
                 HStack {
                     Button { lang.toggle() } label: {
@@ -106,9 +109,9 @@ struct AnalyticsView: View {
                         Text(lang.t("stat.totalGain"))
                             .font(.system(size: 12))
                             .foregroundColor(Color("brown").opacity(0.5))
-                        Text("\(Money.sar(unrealizedGain)) \(lang.t("unit.sar"))")
+                        Text("\(Money.sar(totalGain)) \(lang.t("unit.sar"))")
                             .font(.system(size: 22, weight: .bold))
-                            .foregroundColor(unrealizedGain >= 0 ? Color("dark green") : Color("burgindy"))
+                            .foregroundColor(totalGain >= 0 ? Color("dark green") : Color("burgindy"))
                     }
                 }
                 .padding(.horizontal, 24)
@@ -127,16 +130,13 @@ struct AnalyticsView: View {
                         if positions.isEmpty {
                             Circle()
                                 .trim(from: 0, to: 1)
-                                .stroke(Color("dark baige").opacity(0.3),
-                                        style: StrokeStyle(lineWidth: 28, lineCap: .round))
+                                .stroke(Color("dark baige").opacity(0.3), style: StrokeStyle(lineWidth: 28, lineCap: .round))
                         } else {
                             let slices = computeDynamicSlices()
                             ForEach(0..<slices.count, id: \.self) { i in
                                 Circle()
-                                    .trim(from: slices[i].startPercent,
-                                          to: max(slices[i].startPercent, slices[i].endPercent - 0.03))
-                                    .stroke(colorForIndex(i),
-                                            style: StrokeStyle(lineWidth: 28, lineCap: .round))
+                                    .trim(from: slices[i].startPercent, to: max(slices[i].startPercent, slices[i].endPercent - 0.03))
+                                    .stroke(colorForIndex(i), style: StrokeStyle(lineWidth: 28, lineCap: .round))
                             }
                         }
                     }
@@ -160,7 +160,7 @@ struct AnalyticsView: View {
                             Image(systemName: gainPercentage >= 0 ? "arrow.up.right" : "arrow.down.right")
                         }
                         .font(.system(size: 12, weight: .bold))
-                        .foregroundColor(gainPercentage >= 0 ? Color("dark green") : Color("burgindy"))
+                        .foregroundColor(unrealizedGain >= 0 ? Color("dark green") : Color("burgindy"))
                         .padding(.top, 2)
                     }
                 }
@@ -169,12 +169,11 @@ struct AnalyticsView: View {
 
                 Spacer()
 
-                // MARK: - Upgrade panel (matches design: house thumbnail left, progress right)
+                // MARK: - Upgrade panel
                 Button {
                     showHouseProgressionSheet = true
                 } label: {
                     HStack(spacing: 14) {
-                        // House level image thumbnail
                         Image("level\(currentStageNumber)")
                             .resizable()
                             .scaledToFill()
@@ -205,7 +204,6 @@ struct AnalyticsView: View {
 
                         Spacer()
 
-                        // Progress percentage + chevron
                         VStack(alignment: .trailing, spacing: 4) {
                             Text("\(Int(upgradeProgress * 100))%")
                                 .font(.system(size: 13, weight: .bold))
@@ -238,6 +236,7 @@ struct AnalyticsView: View {
         positions.map { $0.symbol }.sorted().joined(separator: ",")
     }
 
+    // MARK: - Wheel slice types and math helpers
     private struct WheelSlice {
         let startPercent: Double
         let endPercent: Double

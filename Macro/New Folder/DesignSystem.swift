@@ -1,24 +1,22 @@
-//
-//  DesignSystem.swift
-//  Macro
-//
-
 import SwiftUI
 import SwiftData
 
 // MARK: - Reusable Coin Badge
-// Reads real brick count from SwiftData transactions so the number is
-// always correct even before any sales happen.
 struct CoinBadge: View {
     @Environment(AppStore.self) private var store
     @Query private var transactions: [Transaction]
 
-    private var unrealizedGain: Double {
-        let positions = PortfolioMath.allPositions(from: transactions)
-        return positions.reduce(0.0) { sum, pos in
+    private var totalGain: Double {
+        let positions = PortfolioMath.allPositions(from: transactions, userID: store.currentUserID)
+        
+        let unrealized = positions.reduce(0.0) { sum, pos in
             let price = store.livePrice(for: pos.symbol) ?? pos.averageBuyPrice
             return sum + (price * Double(pos.quantity)) - pos.costBasis
         }
+        
+        let realized = PortfolioMath.totalRealizedGain(from: transactions, userID: store.currentUserID)
+        
+        return unrealized + realized
     }
 
     var body: some View {
@@ -27,7 +25,7 @@ struct CoinBadge: View {
                 .resizable()
                 .scaledToFit()
                 .frame(width: 16, height: 16)
-            Text("\(store.totalDynamicBricks(unrealizedGain: unrealizedGain))")
+            Text("\(store.totalDynamicBricks(totalGain: totalGain))")
                 .font(.system(size: 13, weight: .bold))
                 .foregroundColor(Color("brown"))
         }

@@ -1,8 +1,3 @@
-//
-//  HouseProgressionView.swift
-//  Macro
-//
-
 import SwiftUI
 import SwiftData
 
@@ -23,30 +18,32 @@ struct HouseProgressionView: View {
     @State private var selectedLevelTab: Int = 1
 
     private let stages = [
-        NajdiBuildingStage(level: 1, title: "Desert Groundwork",
-                           description: "Plotting structural lines and clearing core sands.",
-                           bricksRequired: 0),
-        NajdiBuildingStage(level: 2, title: "Lower Archways & Framing",
-                           description: "Raising core perimeter blocks and pointed archways.",
-                           bricksRequired: 50),
-        NajdiBuildingStage(level: 3, title: "Upper Facade & Frieze",
-                           description: "Sculpting triangular patterns and gateway towers.",
-                           bricksRequired: 150),
-        NajdiBuildingStage(level: 4, title: "Completed Heritage Estate",
-                           description: "Polished multi-tier structural palace complete.",
-                           bricksRequired: 350)
+        NajdiBuildingStage(level: 1, title: "Desert Groundwork", description: "Plotting structural lines and clearing core sands.", bricksRequired: 0),
+        NajdiBuildingStage(level: 2, title: "Lower Archways & Framing", description: "Raising core perimeter blocks and pointed archways.", bricksRequired: 50),
+        NajdiBuildingStage(level: 3, title: "Upper Facade & Frieze", description: "Sculpting triangular patterns and gateway towers.", bricksRequired: 150),
+        NajdiBuildingStage(level: 4, title: "Completed Heritage Estate", description: "Polished multi-tier structural palace complete.", bricksRequired: 350)
     ]
 
     private var unrealizedGain: Double {
-        let positions = PortfolioMath.allPositions(from: transactions)
+        let positions = PortfolioMath.allPositions(from: transactions, userID: store.currentUserID)
         return positions.reduce(0.0) { sum, pos in
             let price = store.livePrice(for: pos.symbol) ?? pos.averageBuyPrice
             return sum + (price * Double(pos.quantity)) - pos.costBasis
         }
     }
 
+    private var totalRealizedGain: Double {
+        PortfolioMath.totalRealizedGain(from: transactions, userID: store.currentUserID)
+    }
+
+    // MARK: - Combined Unified Gain Formula
+    private var totalGain: Double {
+        unrealizedGain + totalRealizedGain
+    }
+
     private var totalBricks: Int {
-        store.totalDynamicBricks(unrealizedGain: unrealizedGain)
+        // FIXED: Corrected parameter label to follow totalGain formula logic
+        store.totalDynamicBricks(totalGain: totalGain)
     }
 
     private var currentActiveStage: NajdiBuildingStage {
@@ -71,7 +68,6 @@ struct HouseProgressionView: View {
             Color(red: 245/255, green: 242/255, blue: 235/255).ignoresSafeArea()
 
             VStack(spacing: 0) {
-
                 // MARK: - Header
                 HStack {
                     Button { dismiss() } label: {
@@ -104,12 +100,11 @@ struct HouseProgressionView: View {
 
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(spacing: 16) {
-
                         let selectedStage = stages.first(where: { $0.level == selectedLevelTab }) ?? stages[0]
                         let isUnlocked = totalBricks >= selectedStage.bricksRequired
                         let isCurrentlyBuilding = currentActiveStage.level == selectedLevelTab && nextStageTarget != nil
 
-                        // MARK: - House Image
+                        // MARK: - Image Frame Display
                         ZStack(alignment: .topLeading) {
                             Image("level\(selectedLevelTab)")
                                 .resizable()
@@ -121,7 +116,6 @@ struct HouseProgressionView: View {
                                 .blur(radius: isUnlocked ? 0 : 4)
                                 .animation(.easeInOut(duration: 0.35), value: selectedLevelTab)
 
-                            // Locked overlay
                             if !isUnlocked {
                                 ZStack {
                                     Color.black.opacity(0.38)
@@ -141,7 +135,6 @@ struct HouseProgressionView: View {
                                 .clipShape(RoundedRectangle(cornerRadius: 24))
                             }
 
-                            // Building overlay
                             if isCurrentlyBuilding && isUnlocked {
                                 VStack {
                                     Spacer()
@@ -165,17 +158,13 @@ struct HouseProgressionView: View {
                                 .clipShape(RoundedRectangle(cornerRadius: 24))
                             }
 
-                            // Phase badge
                             HStack {
                                 Text("PHASE 0\(selectedLevelTab)")
                                     .font(.system(size: 11, weight: .black))
                                     .foregroundColor(.white)
                                     .padding(.horizontal, 12)
                                     .padding(.vertical, 5)
-                                    .background(
-                                        isUnlocked ? Color("dark green") :
-                                        (isCurrentlyBuilding ? Color("light brown") : Color.gray)
-                                    )
+                                    .background(isUnlocked ? Color("dark green") : (isCurrentlyBuilding ? Color("light brown") : Color.gray))
                                     .clipShape(Capsule())
                                 Spacer()
                             }
@@ -183,7 +172,7 @@ struct HouseProgressionView: View {
                         }
                         .frame(height: 240)
 
-                        // MARK: - Level Tabs
+                        // MARK: - Level Tab Row
                         HStack(spacing: 10) {
                             ForEach(stages) { stage in
                                 let isActive = selectedLevelTab == stage.level
@@ -204,7 +193,7 @@ struct HouseProgressionView: View {
                             }
                         }
 
-                        // MARK: - Progress Card
+                        // MARK: - Progress Tracker Panel
                         VStack(spacing: 12) {
                             if let next = nextStageTarget {
                                 VStack(spacing: 8) {
@@ -222,9 +211,7 @@ struct HouseProgressionView: View {
                                             RoundedRectangle(cornerRadius: 100)
                                                 .fill(Color("dark baige").opacity(0.2))
                                             RoundedRectangle(cornerRadius: 100)
-                                                .fill(LinearGradient(
-                                                    colors: [Color("light brown"), Color("brown")],
-                                                    startPoint: .leading, endPoint: .trailing))
+                                                .fill(LinearGradient(colors: [Color("light brown"), Color("brown")], startPoint: .leading, endPoint: .trailing))
                                                 .frame(width: geo.size.width * levelProgressPercentage)
                                         }
                                     }
@@ -251,7 +238,7 @@ struct HouseProgressionView: View {
                         .background(Color("white"))
                         .clipShape(RoundedRectangle(cornerRadius: 20))
 
-                        // MARK: - Stage Description
+                        // MARK: - Structural Description Metadata
                         VStack(alignment: .leading, spacing: 6) {
                             Text(selectedStage.title.uppercased())
                                 .font(.system(size: 11, weight: .black))

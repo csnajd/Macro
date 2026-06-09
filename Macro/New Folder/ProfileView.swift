@@ -29,16 +29,21 @@ struct ProfileView: View {
         }
     }
  
+    private var totalRealizedGain: Double {
+        PortfolioMath.totalRealizedGain(from: transactions, userID: store.currentUserID)
+    }
+
+    private var totalGain: Double {
+        unrealizedGain + totalRealizedGain
+    }
+
     private var totalBricks: Int {
-        store.totalDynamicBricks(unrealizedGain: unrealizedGain)
+        // FIXED: Corrected parameter label and argument to match the total dynamic gains equation
+        store.totalDynamicBricks(totalGain: totalGain)
     }
  
     private var totalInvested: Double {
         PortfolioMath.totalCostBasis(from: transactions, userID: store.currentUserID)
-    }
- 
-    private var totalGain: Double {
-        unrealizedGain + PortfolioMath.totalRealizedGain(from: transactions, userID: store.currentUserID)
     }
  
     private var currentStageNumber: Int {
@@ -46,8 +51,6 @@ struct ProfileView: View {
     }
  
     // MARK: - Display name
-    // Real name if we have one. "Investor" fallback if signed in but Apple
-    // didn't return a name. "Guest" only when not signed in.
     private var displayName: String {
         if store.isSignedIn {
             return store.userName.isEmpty ? lang.t("profile.fallbackName") : store.userName
@@ -103,7 +106,6 @@ struct ProfileView: View {
                             .overlay(Circle().stroke(Color("white"), lineWidth: 3))
                             .shadow(color: Color("brown").opacity(0.1), radius: 8, x: 0, y: 4)
  
-                            // Camera badge — only meaningful when signed in
                             if store.isSignedIn {
                                 ZStack {
                                     Circle()
@@ -131,7 +133,7 @@ struct ProfileView: View {
                         profileImageData = store.profileImageData()
                     }
  
-                    // Name
+                    // Name Display
                     Text(displayName)
                         .font(.system(size: 22, weight: .bold))
                         .foregroundColor(Color("brown"))
@@ -412,4 +414,3 @@ private struct ProfileInfoRow: View {
         .padding(.vertical, 14)
     }
 }
- 
